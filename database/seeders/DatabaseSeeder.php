@@ -19,6 +19,11 @@ class DatabaseSeeder extends Seeder
             UserRoleSeeder::class,
             UserSeeder::class,
             // CountrySeeder::class,
+            CategorySeeder::class,
+            BrandSeeder::class,
+            AttributeSeeder::class,
+            // ProductSeeder::class,
+            ProductAttributeSeeder::class,
         ]);
 
         // User::factory()->create([

@@ -75,16 +75,11 @@ Route::prefix('v1')->group(callback: function () {
 
 
             Route::prefix('products')->group(function () {
-                Route::get('/own-products', [ProductController::class, 'getOwnProducts']);
-                // Route::get('/', [ProductController::class, 'index']);
                 Route::post('/', [ProductController::class, 'store']);
-                Route::get('/{id?}', [ProductController::class, 'show']);
-                Route::put('/{id}', [ProductController::class, 'update']);
-                Route::delete('/{id}', [ProductController::class, 'destroy']);
-                Route::get('/{id}/increment-view', [ProductController::class, 'incrementViewCount']);
-                Route::get('/filter', [ProductController::class, 'filter']);
-                Route::get('/{id}/generate-referral', [ProductController::class, 'generateReferralLink']);
-                Route::get('refer/{referralCode}/{productId}', [ProductController::class, 'verifyReferral']);
+                // Route::get('/{id?}', [ProductController::class, 'show']);
+                // Route::put('/{id}', [ProductController::class, 'update']);
+                // Route::delete('/{id}', [ProductController::class, 'destroy']);
+                Route::get('/filter', [ProductController::class, 'index']);
 
             });
 
