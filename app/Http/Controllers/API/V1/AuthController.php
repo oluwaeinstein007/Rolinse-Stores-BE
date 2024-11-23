@@ -165,33 +165,33 @@ class AuthController extends Controller
         ], 401);
     }
 
+
     public function login(Request $request)
     {
         $credentials = $request->validate([
             'email' => 'required|email',
+            'password' => 'required|string',
         ]);
 
-        // Attempt to find the user by email
-        $user = User::where('email', $credentials['email'])->first();
-
-        if (!$user) {
+        if (!auth()->attempt($credentials, $request->remember)) {
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
-        $this->generateOtp($request->email);
-
-        // Check if user is suspended and handle suspension status
-        if ($user->is_suspended) {
-            return $this->checkSuspendServed($user);
+        if (!auth()->user()->email_verified_at) {
+            return response()->json(['error' => 'Email not verified.'], 401);
         }
 
-        // Log the login activity
-        ActivityLogger::log('User', 'User Login', 'User has successfully logged in', $user->id);
+        //check if suspended then if so write code to check if suspension has expired
+        if (auth()->user()->is_suspended) {
+            // return response()->json(['error' => 'Account is suspended.'], 401);
+            return $this->checkSuspendServed(auth()->user());
+        }
 
-        // Generate authentication token and return response
+        ActivityLogger::log('User', 'User Login', 'User has successfully logged in', auth()->user()->id);
+
         return response()->json([
-            'message' => 'success, otp sent',
-            // 'user' => $user
+            'token' => auth()->user()->createToken('authToken')->plainTextToken,
+            'user' => auth()->user()
         ]);
     }
 
@@ -232,8 +232,10 @@ class AuthController extends Controller
 
     public function socialAuth(Request $request)
     {
+        // Get user by email
         $user = User::where('email', $request->input('email'))->first();
 
+        //Check if user has an account
         if ($user) {
             $token = $user->createToken('authToken')->plainTextToken;
 
@@ -244,6 +246,7 @@ class AuthController extends Controller
             ], 200);
         }
 
+        //make password
         $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         $password = '';
 
@@ -253,25 +256,30 @@ class AuthController extends Controller
         }
 
         $RefCode = $this->generateRefCode();
-        $username = $request['email'] ? explode('@', $request['email'])[0] . rand(1000, 9999) : null;
+        $username = $request->username ?? $request['email'] ? explode('@', $request['email'])[0] . rand(1000, 9999) : null;
 
         $user = User::create([
-            'full_name' => $request->full_name,
+            'password' => Hash::make($password),
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
             'phone_number' => $request->phone_number,
             'email' => $request->email,
+            'country' => $request->country,
             'user_role_id' => 2,
             'referral_code' => $RefCode,
             'is_social' => true,
             'social_type' => $request->social_type,
-            'ref_sort' => User::max('ref_sort') + 1,
-            'username' => $username,
+            'email_verified_at' => now(),
+            'username' => $username
         ]);
 
-        $this->generateOtp($request->email);
+        // Create token for the new user
+        $token = $user->createToken('authToken')->plainTextToken;
 
 
         return response()->json([
             'message' => 'success',
+            'token' => $token,
             'data' => $user
         ], 200);
     }
@@ -401,6 +409,52 @@ class AuthController extends Controller
         }
 
         return $user;
+    }
+
+
+    public function changePassword(Request $request)
+    {
+        $user = auth()->user();
+        $validator = Validator::make($request->all(), [
+            'old_password' => 'required|string|min:8',
+            'new_password' => 'required|string|min:8|confirmed'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => 'failed', 'error' => $validator->errors()], 400);
+        }
+
+        if (!password_verify($request->old_password, $user->password)) {
+            return response()->json(['message' => 'failed', 'error' => 'Old password is incorrect'], 400);
+        }
+        $user->password = Hash::make($request->new_password);
+        $user->update();
+
+        ActivityLogger::log('User', 'User Password Change', 'User has successfully changed password', $user->id);
+
+        return response()->json(['message' => 'success'], 200);
+    }
+
+
+    public function updatePassword(Request $request)
+    {
+        $attr = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|confirmed', //confirmed means password_confirmation
+        ]);
+
+        if ($attr->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $attr->errors()
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $user->password = Hash::make($request->password);
+        $user->update();
+
+        ActivityLogger::log('User', 'User Password Update', 'User has successfully updated password', $user->id);
+
+        return response()->json(['message' => 'success'], 200);
     }
 }
 

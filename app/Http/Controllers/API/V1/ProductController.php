@@ -5,7 +5,12 @@ namespace App\Http\Controllers\API\V1;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Attribute;
 use Illuminate\Support\Facades\Storage;
+use App\Services\GeneralService;
+use App\Services\NotificationService;
 
 // class ProductController extends Controller
 // {
@@ -78,6 +83,17 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
+    protected $generalService;
+    protected $notificationService;
+
+    public function __construct(GeneralService $generalService, NotificationService $notificationService)
+    {
+        $this->generalService = $generalService;
+        $this->notificationService = $notificationService;
+        // $this->middleware('auth');
+    }
+
+
     public function index(Request $request)
     {
         $products = Product::with(['category', 'brand', 'images.color', 'attributes'])
@@ -86,6 +102,32 @@ class ProductController extends Controller
             ->paginate(10);
 
         return response()->json($products);
+    }
+
+    // public function search(Request $request)
+    // {
+    //     $products = Product::with(['category', 'brand', 'images.color', 'attributes'])
+    //         ->where('name', 'like', "%{$request->search}%")
+    //         ->orWhere('description', 'like', "%{$request->search}%")
+    //         ->paginate(10);
+
+    //     return response()->json($products);
+    // }
+    public function getTypes()
+    {
+        $brands = Brand::select('id', 'name')->get();
+        $categories = Category::select('id', 'name')->get();
+        $sizes = Attribute::where('type', 'size')->select('id','type','value')->get();
+        $colors = Attribute::where('type', 'color')->select('id','type','value')->get();
+
+        $data = [
+            'brands' => $brands,
+            'categories' => $categories,
+            'sizes' => $sizes,
+            'colors' => $colors,
+        ];
+
+        return $this->success('Types and Attributes retrieved successfully', $data, [], 200);
     }
 
 
@@ -111,7 +153,10 @@ class ProductController extends Controller
             $attributes = explode(',', trim($request->get('attributes'), '[]'));
             $attributes = array_filter(array_map('intval', $attributes));
             $request->merge(['attributes' => $attributes]);
-            $product->attributes()->attach($request->attributes);
+            // return $request->get('attributes');
+            foreach($attributes as $attribute) {
+                $product->attributes()->attach($attribute);
+            }
         }
 
         // Save images
@@ -128,6 +173,65 @@ class ProductController extends Controller
     {
         return response()->json($product->load(['category', 'brand', 'images.color', 'attributes']));
     }
+
+
+    // public function confirmPrice(Request $request)
+    // {
+    //     $productId = $request->product_id ?: 1;
+    //     $product = Product::find($productId);
+    //     $price = $product->price;
+    //     $baseCurrency = $product->baseCurrency ?:'USD';
+    //     $returnCurrency = $request->returnCurrency ?:'USD';
+
+    //     $convertedPrice = $this->generalService->convertMoney($baseCurrency, $price, $returnCurrency);
+
+    //     return $this->success('Price converted successfully', ['price' => $convertedPrice], [], 200);
+    // }
+
+
+    public function confirmPrice(Request $request)
+    {
+        $products = $request->input('products', []);
+        $returnCurrency = $request->input('returnCurrency', 'USD');
+        $results = [];
+
+        foreach ($products as $productData) {
+            $productId = $productData['product_id'];
+            $quantity = $productData['quantity'] ?? 1;
+
+            $product = Product::find($productId);
+            if (!$product) {
+                $results[] = [
+                    'product_id' => $productId,
+                    'error' => 'Product not found'
+                ];
+                continue;
+            }
+
+            $baseCurrency = $product->baseCurrency ?: 'USD';
+            $price = $product->price;
+            $totalPrice = $price * $quantity;
+
+            $convertedPrice = $this->generalService->convertMoney($baseCurrency, $totalPrice, $returnCurrency);
+
+            $results[] = [
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'amount' => $convertedPrice,
+                'currency' => $returnCurrency
+            ];
+        }
+
+        $data = [
+            // 'total' => array_sum(array_column($results, 'total_price')),
+            'total_price' => number_format(array_sum(array_column($results, 'amount')), 2),
+            'currency' => $returnCurrency,
+            'products' => $results
+        ];
+
+        return $this->success('Prices converted successfully', $data, [], 200);
+    }
+
 
 
     public function update(Request $request, Product $product)

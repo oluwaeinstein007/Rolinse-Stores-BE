@@ -161,7 +161,7 @@ class AdminController extends Controller
         $userActivitiesQuery = ActivityLog::when($id, function ($query) use ($id) {
             return $query->where('user_id', $id);
         })
-        ->with('user:id,full_name,email,country');
+        ->with('user:id,first_name,last_name,email,country');
 
         $activityCount = $userActivitiesQuery->count();
         $userActivities = $userActivitiesQuery->paginate(10);

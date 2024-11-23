@@ -8,7 +8,7 @@ class ExchangeRate extends Model
 {
     //
     protected $fillable = [
-        'user_id',
+        // 'user_id',
         'currencyCode',
         'rate',
         'created_at',

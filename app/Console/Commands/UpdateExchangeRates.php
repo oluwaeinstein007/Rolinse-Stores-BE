@@ -76,7 +76,7 @@ class UpdateExchangeRates extends Command
 
     public static function addNewCurrency($currencyCode, $rate) {
         $exchangeHistory = new ExchangeHistory();
-        $exchangeHistory->user_id = 1;
+        // $exchangeHistory->user_id = 1;
         $exchangeHistory->currencyCode = $currencyCode;
         $exchangeHistory->rate = $rate;
         $exchangeHistory->save();
@@ -86,7 +86,7 @@ class UpdateExchangeRates extends Command
                 'currencyCode' => $currencyCode,
             ],
             [
-                'user_id' => 1,
+                // 'user_id' => 1,
                 'rate' => $rate,
             ]
         );

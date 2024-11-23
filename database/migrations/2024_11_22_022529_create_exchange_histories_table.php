@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('exchange_histories', function (Blueprint $table) {
             $table->id();
+            // $table->foreignId('user_id');
+            $table->string('currencyCode');
+            $table->decimal('rate', 10, 2);
             $table->timestamps();
         });
     }

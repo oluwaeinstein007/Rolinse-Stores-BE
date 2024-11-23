@@ -79,6 +79,9 @@ Route::prefix('v1')->group(callback: function () {
                 // Route::get('/{id?}', [ProductController::class, 'show']);
                 // Route::put('/{id}', [ProductController::class, 'update']);
                 // Route::delete('/{id}', [ProductController::class, 'destroy']);
+                // Route::get('/get-products/{id?}', [ProductController::class, 'index']);
+                Route::get('/get-types', [ProductController::class, 'getTypes']);
+                Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
                 Route::get('/filter', [ProductController::class, 'index']);
 
             });
