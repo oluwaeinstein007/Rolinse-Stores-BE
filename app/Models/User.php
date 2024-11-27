@@ -78,4 +78,15 @@ class User extends Authenticatable
     {
         return $this->hasMany(ActivityLog::class);
     }
+
+    // public function promos(){
+    //     return $this->belongsToMany(AdminPromo::class, 'promo_user')
+    //                 ->withTimestamps(); // Tracks when the promo was used
+    // }
+
+    public function promos(){
+        return $this->belongsToMany(AdminPromo::class, 'promo_users', 'promo_id', 'user_id')
+                    ->withTimestamps(); // Tracks which users used the promo
+    }
+
 }

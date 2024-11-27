@@ -10,7 +10,8 @@ use App\Models\User;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('app:update-exchange-rates')->everyMinute();
+Schedule::command('app:update-exchange-rates')->daily();
+// Schedule::command('app:update-exchange-rates')->everyMinute();
 
 class UpdateExchangeRates extends Command
 {

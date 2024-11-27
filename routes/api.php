@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\V1\AuthController;
 use App\Http\Controllers\API\V1\AdminController;
+use App\Http\Controllers\API\V1\OrderController;
 use App\Http\Controllers\API\V1\PaymentController;
 use App\Http\Controllers\API\V1\ProductController;
 use App\Http\Controllers\API\V1\UserController;
@@ -49,6 +50,8 @@ Route::prefix('v1')->group(callback: function () {
             Route::get('/get-notification', [UserController::class, 'getNotification'])->name('user.get-notification');
             Route::get('/change-notification-status/{id}', [UserController::class, 'changeNotificationStatus']);
 
+            Route::get('/check-discount-promo', [UserController::class, 'checkDiscountCode'])->name('user.check-discount-promo');
+
             Route::get('/levels/{id?}', [UserController::class, 'getLevels']);
             Route::get('/communities/{id?}', [AdminController::class, 'getCommunity']);
 
@@ -76,14 +79,20 @@ Route::prefix('v1')->group(callback: function () {
 
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);
-                // Route::get('/{id?}', [ProductController::class, 'show']);
-                // Route::put('/{id}', [ProductController::class, 'update']);
-                // Route::delete('/{id}', [ProductController::class, 'destroy']);
-                // Route::get('/get-products/{id?}', [ProductController::class, 'index']);
+                Route::get('/', [ProductController::class, 'getAllProducts']);
+                Route::put('/{id}', [ProductController::class, 'update']);
+                Route::delete('/{id}', [ProductController::class, 'destroy']);
+                Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
                 Route::get('/get-types', [ProductController::class, 'getTypes']);
                 Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
                 Route::get('/filter', [ProductController::class, 'index']);
 
+            });
+
+
+            Route::prefix('orders')->group(function () {
+                Route::post('/', [OrderController::class, 'placeOrder']);
+                Route::get('/history', [OrderController::class, 'getOrderHistory']);
             });
 
         });
@@ -131,6 +140,13 @@ Route::prefix('v1')->group(callback: function () {
                 Route::get('/analytics-month-chart', [AdminController::class, 'revenueAnalyticsChart']);
                 Route::get('/payment/get-transactions', [AdminController::class, 'getTransactions']);
                 Route::get('/payment/change-status', [AdminController::class, 'changeTransactionStatus']);
+            });
+
+            Route::prefix('promo')->group(function () {
+                Route::post('/', [AdminController::class, 'createAdminPromo'])->name('admin-promo.create');
+                Route::post('/{id}', [AdminController::class, 'updateAdminPromo'])->name('admin-promo.update');
+                Route::get('/{id?}', [AdminController::class, 'getAdminPromo'])->name('admin-promo.get');
+                Route::delete('/{id}', [AdminController::class, 'deleteAdminPromo'])->name('admin-promo.delete');
             });
         });
     });

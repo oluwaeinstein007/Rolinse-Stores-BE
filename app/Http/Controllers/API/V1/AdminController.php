@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Level;
 use App\Models\User;
 use App\Models\Product;
+use App\Models\AdminPromo;
 use App\Models\Transaction;
 use App\Models\Community;
 use App\Models\Setting;
@@ -200,6 +201,108 @@ class AdminController extends Controller
         $products = $query->get();
         return response()->json(['message' => 'Product filter successfully', 'data' => $products], 200);
     }
+
+
+    /*---------------------------------Admin Promo---------------------------------*/
+
+    public function createAdminPromo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'discount_percentage' => 'numeric',
+            'promo_code' => 'string',
+            'product_type' => 'nullable|array',
+            'max_uses' => 'nullable|integer',
+            'limited' => 'required|boolean',
+            'valid_from' => 'nullable',
+            'valid_until' => 'nullable',
+        ]);
+
+        // Throw error if validation fails
+        if ($validator->fails()) {
+            return $this->failure($validator->errors(), null, 422);
+        }
+
+
+        $exist = AdminPromo::where('promo_code', $request->promo_code)->first();
+        if ($exist) {
+            return $this->failure('failed: Promo Code already exist, promo code must be unique', null, 403);
+        }
+
+        $promo_data = AdminPromo::create([
+            'discount_percentage' => $request->discount_percentage,
+            'promo_code' => $request->promo_code,
+            'limited' => $request->limited,
+            'user_id' => auth()->user()->id,
+            'product_type' => $request->product_type,
+            'max_uses' => $request->max_uses,
+            'valid_from' => $request->valid_from,
+            'valid_until' => $request->valid_until,
+        ]);
+
+        return $this->success('Success', $promo_data, [], 201);
+    }
+
+
+    public function deleteAdminPromo($id)
+    {
+        AdminPromo::find($id)->delete();
+        return $this->success('Success', [], 200);
+    }
+
+
+    public function getAdminPromo($id = null)
+    {
+        if ($id !== null) {
+            $promo = AdminPromo::find($id);
+
+            if (!$promo) {
+                return $this->failure('Promo not found', null, 404);
+            }
+        } else {
+            $promo = AdminPromo::all();
+        }
+
+        return $this->success('Success', $promo, [], 200);
+    }
+
+
+    public function updateAdminPromo(Request $request, $id)
+    {
+        $promo = AdminPromo::find($id);
+        if (!$promo) {
+            return $this->failure('Promo not found', null, 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'discount_percentage' => 'nullable|numeric',
+            'promo_code' => 'nullable|string',
+            'product_type' => 'nullable|array',
+            'max_uses' => 'nullable|integer',
+            'limited' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'valid_from' => 'nullable',
+            'valid_until' => 'nullable',
+        ]);
+
+        // If validation fails, return error response
+        if ($validator->fails()) {
+            return $this->failure($validator->errors(), null, 422);
+        }
+
+        $promo->update($request->only([
+            'discount_percentage',
+            'promo_code',
+            'product_type',
+            'max_uses',
+            'limited',
+            'valid_from',
+            'valid_until',
+            'is_active'
+        ]));
+
+        return $this->success('Promo updated successfully', $promo, [], 200);
+    }
+
 
 
     public function getTransactions(Request $request) {

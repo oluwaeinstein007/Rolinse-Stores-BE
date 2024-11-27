@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Attribute;
+use App\Models\ProductImage;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
@@ -266,6 +267,165 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Product updated successfully.', 'product' => $product->load('images')]);
     }
+
+
+    public function getProduct(Request $request)
+    {
+        $product = Product::with([
+            'category',
+            'brand',
+            'images.color',
+            'attributes'
+        ])->findOrFail($request->id);
+
+        // Define the base currency and return currency
+        $baseCurrency = $product->baseCurrency ?: 'USD';
+        $price = $product->price;
+        $returnCurrency = $request->input('returnCurrency', 'USD');
+        // Convert the price to the requested currency
+        $product->price = $this->generalService->convertMoney($baseCurrency, $price, $returnCurrency);
+
+        $relatedProducts = Product::with(['images', 'brand'])
+            ->where('category_id', $product->category_id)
+            ->where('brand_id', $product->brand_id)
+            ->where('id', '!=', $product->id)
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
+
+        // foreach ($relatedProducts as $relatedProduct) {
+        //     $relatedProduct->price = $this->generalService->convertMoney($relatedProduct->baseCurrency ?? 'USD', $relatedProduct->price, $returnCurrency);
+        // }
+        // Convert prices of related products
+        $relatedProducts->each(function ($relatedProduct) use ($returnCurrency) {
+            $relatedProduct->price = $this->generalService->convertMoney(
+                $relatedProduct->baseCurrency ?? 'USD',
+                $relatedProduct->price,
+                $returnCurrency
+            );
+        });
+
+        $data = [
+            'product' => $product,
+            'related_products' => $relatedProducts,
+        ];
+
+        return response()->json($data);
+    }
+
+
+    // public function getAllProducts(Request $request){
+    //     $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
+
+    //     // Apply filters based on the request parameters
+    //     if ($request->has('brand_id') && $request->brand_id) {
+    //         $query->whereHas('brand', function ($query) use ($request) {
+    //             $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
+    //         });
+    //     }
+
+    //     if ($request->has('category_id') && $request->category_id) {
+    //         $query->whereHas('category', function ($query) use ($request) {
+    //             $query->where('categories.id', $request->category_id);  // specify table name 'categories'
+    //         });
+    //     }
+
+    //     if ($request->has('size_id') && $request->size_id) {
+    //         $query->whereHas('attributes', function ($query) use ($request) {
+    //             $query->where('attributes.type', 'size')
+    //                 ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
+    //         });
+    //     }
+
+    //     if ($request->has('color_id') && $request->color_id) {
+    //         $query->whereHas('images.color', function ($query) use ($request) {
+    //             $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
+    //         });
+    //     }
+
+    //     $products = $query->get();
+
+    //     if ($request->has('returnCurrency') && $request->returnCurrency) {
+    //         $returnCurrency = $request->returnCurrency;
+    //         foreach ($products as $product) {
+    //             $baseCurrency = $product->baseCurrency ?: 'USD';
+    //             $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+    //         }
+    //     }
+
+    //     // // Apply budget filters
+    //     // if ($request->has('upper_budget') && $request->upper_budget && $request->has('lower_budget') && $request->lower_budget) {
+    //     //     $products = $products->filter(function ($product) use ($request) {
+    //     //         return $product->converted_price <= $request->upper_budget && $product->converted_price >= $request->lower_budget;
+    //     //     });
+    //     // } elseif ($request->has('upper_budget') && $request->upper_budget) {
+    //     //     // Apply upper budget filter only
+    //     //     $products = $products->filter(function ($product) use ($request) {
+    //     //         return $product->converted_price <= $request->upper_budget;
+    //     //     });
+    //     // } elseif ($request->has('lower_budget') && $request->lower_budget) {
+    //     //     // Apply lower budget filter only
+    //     //     $products = $products->filter(function ($product) use ($request) {
+    //     //         return $product->converted_price >= $request->lower_budget;
+    //     //     });
+    //     // }
+
+    //     return response()->json($products);
+    // }
+
+    public function getAllProducts(Request $request)
+{
+    // Start the query with eager loading
+    $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
+
+    // Apply filters based on the request parameters
+    if ($request->has('brand_id') && $request->brand_id) {
+        $query->whereHas('brand', function ($query) use ($request) {
+            $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
+        });
+    }
+
+    if ($request->has('category_id') && $request->category_id) {
+        $query->whereHas('category', function ($query) use ($request) {
+            $query->where('categories.id', $request->category_id);  // specify table name 'categories'
+        });
+    }
+
+    if ($request->has('size_id') && $request->size_id) {
+        $query->whereHas('attributes', function ($query) use ($request) {
+            $query->where('attributes.type', 'size')
+                  ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
+        });
+    }
+
+    if ($request->has('color_id') && $request->color_id) {
+        $query->whereHas('images.color', function ($query) use ($request) {
+            $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
+        });
+    }
+
+    // Apply pagination: get page and limit from the request or set defaults
+    $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
+    $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
+
+    // Paginate the query results
+    $products = $query->paginate($perPage, ['*'], 'page', $page);
+
+    // If currency conversion is needed, apply the conversion
+    if ($request->has('returnCurrency') && $request->returnCurrency) {
+        $returnCurrency = $request->returnCurrency;
+        foreach ($products as $product) {
+            $baseCurrency = $product->baseCurrency ?: 'USD';
+            $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+        }
+    }
+
+    // Return paginated results as JSON
+    return response()->json($products);
+}
+
+
+
 
 
     public function destroy(Product $product)
