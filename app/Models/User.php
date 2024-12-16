@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -87,6 +89,11 @@ class User extends Authenticatable
     public function promos(){
         return $this->belongsToMany(AdminPromo::class, 'promo_users', 'promo_id', 'user_id')
                     ->withTimestamps(); // Tracks which users used the promo
+    }
+
+    public function transactions() : HasMany
+    {
+        return $this->hasMany(Transaction::class);
     }
 
 }
