@@ -97,10 +97,6 @@ Route::prefix('v1')->group(callback: function () {
 
             //payment rout prefix
             Route::prefix('payment')->group(function () {
-                // Route::post('/pay', [PaymentController::class, 'pay']);
-                // Route::post('/confirm-payment', [PaymentController::class, 'confirmPayment']);
-                // Route::post('/webhook', [PaymentController::class, 'webhook']);
-
                 Route::post('wallet/deposit', [PaymentController::class, 'pay']);
                 Route::get('stripe/confirm', [PaymentController::class, 'confirmPayment']);
                 Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
