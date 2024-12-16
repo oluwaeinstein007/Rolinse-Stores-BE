@@ -374,55 +374,55 @@ class ProductController extends Controller
     // }
 
     public function getAllProducts(Request $request)
-{
-    // Start the query with eager loading
-    $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
+    {
+        // Start the query with eager loading
+        $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
 
-    // Apply filters based on the request parameters
-    if ($request->has('brand_id') && $request->brand_id) {
-        $query->whereHas('brand', function ($query) use ($request) {
-            $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
-        });
-    }
-
-    if ($request->has('category_id') && $request->category_id) {
-        $query->whereHas('category', function ($query) use ($request) {
-            $query->where('categories.id', $request->category_id);  // specify table name 'categories'
-        });
-    }
-
-    if ($request->has('size_id') && $request->size_id) {
-        $query->whereHas('attributes', function ($query) use ($request) {
-            $query->where('attributes.type', 'size')
-                  ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
-        });
-    }
-
-    if ($request->has('color_id') && $request->color_id) {
-        $query->whereHas('images.color', function ($query) use ($request) {
-            $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
-        });
-    }
-
-    // Apply pagination: get page and limit from the request or set defaults
-    $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
-    $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
-
-    // Paginate the query results
-    $products = $query->paginate($perPage, ['*'], 'page', $page);
-
-    // If currency conversion is needed, apply the conversion
-    if ($request->has('returnCurrency') && $request->returnCurrency) {
-        $returnCurrency = $request->returnCurrency;
-        foreach ($products as $product) {
-            $baseCurrency = $product->baseCurrency ?: 'USD';
-            $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+        // Apply filters based on the request parameters
+        if ($request->has('brand_id') && $request->brand_id) {
+            $query->whereHas('brand', function ($query) use ($request) {
+                $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
+            });
         }
-    }
 
-    // Return paginated results as JSON
-    return response()->json($products);
-}
+        if ($request->has('category_id') && $request->category_id) {
+            $query->whereHas('category', function ($query) use ($request) {
+                $query->where('categories.id', $request->category_id);  // specify table name 'categories'
+            });
+        }
+
+        if ($request->has('size_id') && $request->size_id) {
+            $query->whereHas('attributes', function ($query) use ($request) {
+                $query->where('attributes.type', 'size')
+                    ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
+            });
+        }
+
+        if ($request->has('color_id') && $request->color_id) {
+            $query->whereHas('images.color', function ($query) use ($request) {
+                $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
+            });
+        }
+
+        // Apply pagination: get page and limit from the request or set defaults
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
+        $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
+
+        // Paginate the query results
+        $products = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // If currency conversion is needed, apply the conversion
+        if ($request->has('returnCurrency') && $request->returnCurrency) {
+            $returnCurrency = $request->returnCurrency;
+            foreach ($products as $product) {
+                $baseCurrency = $product->baseCurrency ?: 'USD';
+                $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+            }
+        }
+
+        // Return paginated results as JSON
+        return response()->json($products);
+    }
 
 
 
