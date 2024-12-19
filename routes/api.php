@@ -31,6 +31,17 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::post('/verify-refcode', [AuthController::class, 'verifyReferralCode']);
 
+        Route::prefix('products')->group(function () {
+            // Route::post('/', [ProductController::class, 'store']);
+            Route::get('/', [ProductController::class, 'getAllProducts']);
+            // Route::put('/{id}', [ProductController::class, 'update']);
+            // Route::delete('/{id}', [ProductController::class, 'destroy']);
+            Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+            Route::get('/get-types', [ProductController::class, 'getTypes']);
+            Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+            Route::get('/filter', [ProductController::class, 'index']);
+        });
+
         Route::prefix('payment')->group(function () {
             Route::prefix('stripe')->group(function () {
                 Route::get('pay', [PaymentController::class, 'pay']);
@@ -87,14 +98,13 @@ Route::prefix('v1')->group(callback: function () {
 
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);
-                Route::get('/', [ProductController::class, 'getAllProducts']);
+                // Route::get('/', [ProductController::class, 'getAllProducts']);
                 Route::put('/{id}', [ProductController::class, 'update']);
                 Route::delete('/{id}', [ProductController::class, 'destroy']);
-                Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-                Route::get('/get-types', [ProductController::class, 'getTypes']);
-                Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-                Route::get('/filter', [ProductController::class, 'index']);
-
+                // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+                // Route::get('/get-types', [ProductController::class, 'getTypes']);
+                // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+                // Route::get('/filter', [ProductController::class, 'index']);
             });
 
 
