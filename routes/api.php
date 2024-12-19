@@ -68,6 +68,7 @@ Route::prefix('v1')->group(callback: function () {
             Route::post('/edit-profile', [UserController::class, 'editProfile'])->name('user.edit-profile');
             Route::get('/get-notification', [UserController::class, 'getNotification'])->name('user.get-notification');
             Route::get('/change-notification-status/{id}', [UserController::class, 'changeNotificationStatus']);
+            Route::post('/shipping-address', [UserController::class, 'address']);
 
             Route::get('/check-discount-promo', [UserController::class, 'checkDiscountCode'])->name('user.check-discount-promo');
 
