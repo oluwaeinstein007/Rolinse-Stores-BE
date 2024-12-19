@@ -40,6 +40,7 @@ Route::prefix('v1')->group(callback: function () {
             Route::get('/get-types', [ProductController::class, 'getTypes']);
             Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
             Route::get('/filter', [ProductController::class, 'index']);
+            Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
         });
 
         Route::prefix('payment')->group(function () {

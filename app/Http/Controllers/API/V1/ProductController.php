@@ -421,8 +421,56 @@ class ProductController extends Controller
         }
 
         // Return paginated results as JSON
-        return response()->json($products);
+        return $this->success('Product data', $products, [], 200);
     }
+
+
+    //get product by category ie filter by category slug or gender ie if men get all item related to men
+    public function getProductByCategory(Request $request)
+    {
+        $categoryMappings = [
+            'men' => ['mens-clothing', 'mens-footwear', 'mens-accessories'],
+            'women' => ['womens-clothing', 'womens-footwear', 'womens-accessories'],
+            'kids' => ['kids-clothing', 'kids-footwear', 'kids-accessories'],
+            'accessories' => ['mens-accessories', 'mens-accessories', 'mens-accessories'],
+            'mens-accessories' => ['mens-accessories']
+        ];
+
+        // Check if the category is valid
+        if (!array_key_exists($request->category, $categoryMappings)) {
+            return response()->json(['message' => 'Invalid category provided'], 400);
+        }
+
+        // Get category slugs associated with the provided category
+        $categorySlugs = $categoryMappings[$request->category];
+
+        // Fetch the categories by slug
+        $categories = Category::whereIn('slug', $categorySlugs)->get();
+
+        if ($categories->isEmpty()) {
+            return response()->json(['message' => 'Categories not found'], 404);
+        }
+
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 15;
+        $page = $request->has('page') ? (int)$request->page : 1;
+
+        // Fetch products related to the categories
+        $products = Product::whereIn('category_id', $categories->pluck('id'))
+                    ->with(['category', 'brand', 'images.color', 'attributes'])
+                    ->paginate($perPage, ['*'], 'page', $page);
+
+        // If currency conversion is needed, apply the conversion
+        if ($request->has('returnCurrency') && $request->returnCurrency) {
+            $returnCurrency = $request->returnCurrency;
+            foreach ($products as $product) {
+                $baseCurrency = $product->baseCurrency ?: 'USD';
+                $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+            }
+        }
+
+        return $this->success('Products fetched successfully', $products, [], 200);
+    }
+
 
 
 
