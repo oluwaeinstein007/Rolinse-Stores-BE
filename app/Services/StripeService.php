@@ -84,12 +84,12 @@ class StripeService
                         // Exit if the payment transaction is not successful
                         if ($paymentTransaction->status === TransactionStatus::COMPLETED) {
                             // Proceed to main course of action
-                            $wallet = Wallet::where('user_id', $paymentTransaction->user_id)->first();
-                            if ($wallet) {
-                                // update the amount by adding it to the amount
-                                $wallet->amount = $paymentTransaction->amount + $wallet->amount;
-                                $wallet->save();
-                            }
+                            // $wallet = Wallet::where('user_id', $paymentTransaction->user_id)->first();
+                            // if ($wallet) {
+                            //     // update the amount by adding it to the amount
+                            //     $wallet->amount = $paymentTransaction->amount + $wallet->amount;
+                            //     $wallet->save();
+                            // }
                         }
                     } else {
                         return ['error' => false, 'message' => 'Transaction status is currently: '.TransactionStatus::COMPLETED->value];
@@ -159,12 +159,12 @@ class StripeService
                         $transaction->status = TransactionStatus::COMPLETED;
                         $transaction->save();
 
-                        $wallet = Wallet::where('user_id', $transaction->user_id)->first();
-                        if ($wallet) {
-                            // update the amount by adding it to the amount
-                            $wallet->amount = $transaction->amount + $wallet->amount;
-                            $wallet->save();
-                        }
+                        // $wallet = Wallet::where('user_id', $transaction->user_id)->first();
+                        // if ($wallet) {
+                        //     // update the amount by adding it to the amount
+                        //     $wallet->amount = $transaction->amount + $wallet->amount;
+                        //     $wallet->save();
+                        // }
                     }
 
                 } else {

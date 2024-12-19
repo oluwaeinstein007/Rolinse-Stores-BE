@@ -14,14 +14,16 @@ class Transaction extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id',
-        'booking_id',
+        'user_email',
+        'order_id',
         'amount',
         'payment_type',
+        'type',
         'payment_method',
         'status',
         'reference',
         'description',
+        'payment_id',
     ];
 
     protected $casts = [

@@ -8,18 +8,21 @@ use Illuminate\Http\Request;
 use App\Services\StripeService;
 use App\Enums\TransactionType;
 use App\Enums\TransactionStatus;
+use App\Enums\PaymentGateway;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
-    public function pay(MakePaymentRequest $request)
+    // public function pay(MakePaymentRequest $request)
+    public function pay(Request $request)
     {
         $paymentTransaction = Transaction::create([
             'reference' => strtoupper(
             str_replace('_', ' ', now()->timestamp . bin2hex(random_bytes(6)))),
             'amount' => $request->amount,
-            'user_id' => auth()->user()->id,
+            // 'user_id' => auth()->user()->id,
+            'payment_gateway' => PaymentGateway::STRIPE->value,
             'type' => TransactionType::ONEOFF->value,
             'status' => TransactionStatus::PENDING->value,
         ]);

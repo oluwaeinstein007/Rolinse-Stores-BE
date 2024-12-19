@@ -13,14 +13,17 @@ return new class extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('user_email')->nullable();
             $table->string('reference')->unique();
+            $table->string('payment_id')->unique();
             $table->string('description')->nullable();
             $table->foreignId('order_id')->nullable()->constrained('orders')->cascadeOnDelete();
             $table->decimal('amount', 10, 2);
-            $table->enum('payment_type', ['Consultation', 'Full Service']);
-            $table->enum('payment_method', ['PayPal', 'Stripe', 'Bank Transfer']);
-            $table->enum('status', ['Completed', 'Failed', 'Refunded']);
+            $table->enum('payment_method', ['PayPal', 'Stripe', 'Bank Transfer'])->nullable();
+            $table->enum('type', ['one-off', 'recurring', 'tip', 'refund']);
+            $table->enum('status', ['completed', 'rejected', 'cancelled', 'pending', 'in-escrow', 'withdrawn']);
+            //deleted_at
+            $table->softDeletes();
             $table->timestamps();
         });
     }

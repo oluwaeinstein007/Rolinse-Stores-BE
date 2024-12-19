@@ -30,6 +30,14 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/verify-username', [AuthController::class, 'verifyUsername']);
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::post('/verify-refcode', [AuthController::class, 'verifyReferralCode']);
+
+        Route::prefix('payment')->group(function () {
+            Route::prefix('stripe')->group(function () {
+                Route::get('pay', [PaymentController::class, 'pay']);
+                Route::get('confirm', [PaymentController::class, 'confirmPayment']);
+                Route::post('webhook', [PaymentController::class, 'webhook']);
+            });
+        });
     });
 
 
@@ -96,11 +104,11 @@ Route::prefix('v1')->group(callback: function () {
             });
 
             //payment rout prefix
-            Route::prefix('payment')->group(function () {
-                Route::post('wallet/deposit', [PaymentController::class, 'pay']);
-                Route::get('stripe/confirm', [PaymentController::class, 'confirmPayment']);
-                Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
-            });
+            // Route::prefix('payment')->group(function () {
+            //     Route::post('wallet/deposit', [PaymentController::class, 'pay']);
+            //     Route::get('stripe/confirm', [PaymentController::class, 'confirmPayment']);
+            //     Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
+            // });
 
         });
 
