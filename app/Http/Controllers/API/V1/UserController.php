@@ -13,6 +13,9 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
+use App\Models\ShippingAddress;
+use Illuminate\Support\Facades\Auth;
+
 class UserController extends Controller
 {
     protected $generalService;
@@ -150,6 +153,82 @@ class UserController extends Controller
 
         return response()->json(['message' => 'success: Promo code is valid'], 200);
     }
+
+
+
+    public function address(Request $request)
+    {
+        $rules = [
+            'address_line1' => 'required|string|max:255',
+            'address_line2' => 'nullable|string|max:255',
+            'city' => 'required|string|max:100',
+            'state' => 'required|string|max:100',
+            'postal_code' => 'required|string|max:20',
+            'country' => 'required|string|max:100',
+        ];
+
+        // If the user already has an address, make all fields optional
+        $address = ShippingAddress::where('user_id', Auth::id())->first();
+        if ($address) {
+            foreach ($rules as $key => $rule) {
+                $rules[$key] = 'sometimes|' . $rule;
+            }
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($address) {
+            // Update existing address
+            $address->update($validated);
+            $message = 'Shipping address updated successfully';
+        } else {
+            // Create new address
+            $validated['user_id'] = Auth::id();
+            $address = ShippingAddress::create($validated);
+            $message = 'Shipping address created successfully';
+        }
+
+        return response()->json(['message' => $message, 'data' => $address], $address ? 200 : 201);
+    }
+
+
+
+
+    // public function store(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'address_line1' => 'required|string|max:255',
+    //         'address_line2' => 'nullable|string|max:255',
+    //         'city' => 'required|string|max:100',
+    //         'state' => 'required|string|max:100',
+    //         'postal_code' => 'required|string|max:20',
+    //         'country' => 'required|string|max:100',
+    //     ]);
+
+    //     $validated['user_id'] = Auth::id();
+
+    //     $address = ShippingAddress::create($validated);
+
+    //     return response()->json(['message' => 'Shipping address created successfully', 'data' => $address], 201);
+    // }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $address = ShippingAddress::where('user_id', Auth::id())->findOrFail($id);
+
+    //     $validated = $request->validate([
+    //         'address_line1' => 'sometimes|required|string|max:255',
+    //         'address_line2' => 'nullable|string|max:255',
+    //         'city' => 'sometimes|required|string|max:100',
+    //         'state' => 'sometimes|required|string|max:100',
+    //         'postal_code' => 'sometimes|required|string|max:20',
+    //         'country' => 'sometimes|required|string|max:100',
+    //     ]);
+
+    //     $address->update($validated);
+
+    //     return response()->json(['message' => 'Shipping address updated successfully', 'data' => $address], 200);
+    // }
 
 
 

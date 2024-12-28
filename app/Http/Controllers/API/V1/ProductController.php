@@ -374,55 +374,103 @@ class ProductController extends Controller
     // }
 
     public function getAllProducts(Request $request)
-{
-    // Start the query with eager loading
-    $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
+    {
+        // Start the query with eager loading
+        $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
 
-    // Apply filters based on the request parameters
-    if ($request->has('brand_id') && $request->brand_id) {
-        $query->whereHas('brand', function ($query) use ($request) {
-            $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
-        });
-    }
-
-    if ($request->has('category_id') && $request->category_id) {
-        $query->whereHas('category', function ($query) use ($request) {
-            $query->where('categories.id', $request->category_id);  // specify table name 'categories'
-        });
-    }
-
-    if ($request->has('size_id') && $request->size_id) {
-        $query->whereHas('attributes', function ($query) use ($request) {
-            $query->where('attributes.type', 'size')
-                  ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
-        });
-    }
-
-    if ($request->has('color_id') && $request->color_id) {
-        $query->whereHas('images.color', function ($query) use ($request) {
-            $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
-        });
-    }
-
-    // Apply pagination: get page and limit from the request or set defaults
-    $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
-    $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
-
-    // Paginate the query results
-    $products = $query->paginate($perPage, ['*'], 'page', $page);
-
-    // If currency conversion is needed, apply the conversion
-    if ($request->has('returnCurrency') && $request->returnCurrency) {
-        $returnCurrency = $request->returnCurrency;
-        foreach ($products as $product) {
-            $baseCurrency = $product->baseCurrency ?: 'USD';
-            $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+        // Apply filters based on the request parameters
+        if ($request->has('brand_id') && $request->brand_id) {
+            $query->whereHas('brand', function ($query) use ($request) {
+                $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
+            });
         }
+
+        if ($request->has('category_id') && $request->category_id) {
+            $query->whereHas('category', function ($query) use ($request) {
+                $query->where('categories.id', $request->category_id);  // specify table name 'categories'
+            });
+        }
+
+        if ($request->has('size_id') && $request->size_id) {
+            $query->whereHas('attributes', function ($query) use ($request) {
+                $query->where('attributes.type', 'size')
+                    ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
+            });
+        }
+
+        if ($request->has('color_id') && $request->color_id) {
+            $query->whereHas('images.color', function ($query) use ($request) {
+                $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
+            });
+        }
+
+        // Apply pagination: get page and limit from the request or set defaults
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
+        $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
+
+        // Paginate the query results
+        $products = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // If currency conversion is needed, apply the conversion
+        if ($request->has('returnCurrency') && $request->returnCurrency) {
+            $returnCurrency = $request->returnCurrency;
+            foreach ($products as $product) {
+                $baseCurrency = $product->baseCurrency ?: 'USD';
+                $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+            }
+        }
+
+        // Return paginated results as JSON
+        return $this->success('Product data', $products, [], 200);
     }
 
-    // Return paginated results as JSON
-    return response()->json($products);
-}
+
+    //get product by category ie filter by category slug or gender ie if men get all item related to men
+    public function getProductByCategory(Request $request)
+    {
+        $categoryMappings = [
+            'men' => ['mens-clothing', 'mens-footwear', 'mens-accessories'],
+            'women' => ['womens-clothing', 'womens-footwear', 'womens-accessories'],
+            'kids' => ['kids-clothing', 'kids-footwear', 'kids-accessories'],
+            'accessories' => ['mens-accessories', 'mens-accessories', 'mens-accessories'],
+            'mens-accessories' => ['mens-accessories']
+        ];
+
+        // Check if the category is valid
+        if (!array_key_exists($request->category, $categoryMappings)) {
+            return response()->json(['message' => 'Invalid category provided'], 400);
+        }
+
+        // Get category slugs associated with the provided category
+        $categorySlugs = $categoryMappings[$request->category];
+
+        // Fetch the categories by slug
+        $categories = Category::whereIn('slug', $categorySlugs)->get();
+
+        if ($categories->isEmpty()) {
+            return response()->json(['message' => 'Categories not found'], 404);
+        }
+
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 15;
+        $page = $request->has('page') ? (int)$request->page : 1;
+
+        // Fetch products related to the categories
+        $products = Product::whereIn('category_id', $categories->pluck('id'))
+                    ->with(['category', 'brand', 'images.color', 'attributes'])
+                    ->paginate($perPage, ['*'], 'page', $page);
+
+        // If currency conversion is needed, apply the conversion
+        if ($request->has('returnCurrency') && $request->returnCurrency) {
+            $returnCurrency = $request->returnCurrency;
+            foreach ($products as $product) {
+                $baseCurrency = $product->baseCurrency ?: 'USD';
+                $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
+            }
+        }
+
+        return $this->success('Products fetched successfully', $products, [], 200);
+    }
+
 
 
 

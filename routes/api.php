@@ -30,6 +30,26 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/verify-username', [AuthController::class, 'verifyUsername']);
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::post('/verify-refcode', [AuthController::class, 'verifyReferralCode']);
+
+        Route::prefix('products')->group(function () {
+            // Route::post('/', [ProductController::class, 'store']);
+            Route::get('/', [ProductController::class, 'getAllProducts']);
+            // Route::put('/{id}', [ProductController::class, 'update']);
+            // Route::delete('/{id}', [ProductController::class, 'destroy']);
+            Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+            Route::get('/get-types', [ProductController::class, 'getTypes']);
+            Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+            Route::get('/filter', [ProductController::class, 'index']);
+            Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
+        });
+
+        Route::prefix('payment')->group(function () {
+            Route::prefix('stripe')->group(function () {
+                Route::get('pay', [PaymentController::class, 'pay']);
+                Route::get('confirm', [PaymentController::class, 'confirmPayment']);
+                Route::post('webhook', [PaymentController::class, 'webhook']);
+            });
+        });
     });
 
 
@@ -49,6 +69,7 @@ Route::prefix('v1')->group(callback: function () {
             Route::post('/edit-profile', [UserController::class, 'editProfile'])->name('user.edit-profile');
             Route::get('/get-notification', [UserController::class, 'getNotification'])->name('user.get-notification');
             Route::get('/change-notification-status/{id}', [UserController::class, 'changeNotificationStatus']);
+            Route::post('/shipping-address', [UserController::class, 'address']);
 
             Route::get('/check-discount-promo', [UserController::class, 'checkDiscountCode'])->name('user.check-discount-promo');
 
@@ -79,14 +100,13 @@ Route::prefix('v1')->group(callback: function () {
 
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);
-                Route::get('/', [ProductController::class, 'getAllProducts']);
+                // Route::get('/', [ProductController::class, 'getAllProducts']);
                 Route::put('/{id}', [ProductController::class, 'update']);
                 Route::delete('/{id}', [ProductController::class, 'destroy']);
-                Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-                Route::get('/get-types', [ProductController::class, 'getTypes']);
-                Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-                Route::get('/filter', [ProductController::class, 'index']);
-
+                // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+                // Route::get('/get-types', [ProductController::class, 'getTypes']);
+                // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+                // Route::get('/filter', [ProductController::class, 'index']);
             });
 
 
@@ -94,6 +114,13 @@ Route::prefix('v1')->group(callback: function () {
                 Route::post('/', [OrderController::class, 'placeOrder']);
                 Route::get('/history', [OrderController::class, 'getOrderHistory']);
             });
+
+            //payment rout prefix
+            // Route::prefix('payment')->group(function () {
+            //     Route::post('wallet/deposit', [PaymentController::class, 'pay']);
+            //     Route::get('stripe/confirm', [PaymentController::class, 'confirmPayment']);
+            //     Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
+            // });
 
         });
 
