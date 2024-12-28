@@ -36,6 +36,33 @@ Route::prefix('v1')->group(callback: function () {
 
 
 
+    Route::middleware([Optional::class])->prefix('user')->group(function () {
+        Route::prefix('products')->group(function () {
+            Route::get('/', [ProductController::class, 'getAllProducts']);
+            Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+            Route::get('/get-types', [ProductController::class, 'getTypes']);
+            Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+            Route::get('/filter', [ProductController::class, 'index']);
+            Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
+            Route::get('/best-seller', [ProductController::class, 'bestSeller']);
+        });
+
+        Route::prefix('orders')->group(function () {
+            Route::post('/', [OrderController::class, 'placeOrder']);
+            Route::get('/history', [OrderController::class, 'getOrderHistory']);
+        });
+
+        Route::prefix('payment')->group(function () {
+            Route::prefix('stripe')->group(function () {
+                Route::get('pay', [PaymentController::class, 'pay']);
+                Route::get('confirm', [PaymentController::class, 'confirmPayment']);
+                Route::post('webhook', [PaymentController::class, 'webhook']);
+            });
+        });
+    });
+
+
+
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('user.logout');
@@ -98,31 +125,6 @@ Route::prefix('v1')->group(callback: function () {
             //     Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
             // });
 
-        });
-
-
-        Route::middleware([Optional::class])->prefix('user')->group(function () {
-            Route::prefix('products')->group(function () {
-                Route::get('/', [ProductController::class, 'getAllProducts']);
-                Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-                Route::get('/get-types', [ProductController::class, 'getTypes']);
-                Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-                Route::get('/filter', [ProductController::class, 'index']);
-                Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
-            });
-
-            Route::prefix('orders')->group(function () {
-                Route::post('/', [OrderController::class, 'placeOrder']);
-                Route::get('/history', [OrderController::class, 'getOrderHistory']);
-            });
-
-            Route::prefix('payment')->group(function () {
-                Route::prefix('stripe')->group(function () {
-                    Route::get('pay', [PaymentController::class, 'pay']);
-                    Route::get('confirm', [PaymentController::class, 'confirmPayment']);
-                    Route::post('webhook', [PaymentController::class, 'webhook']);
-                });
-            });
         });
 
 

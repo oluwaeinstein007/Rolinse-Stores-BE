@@ -8,10 +8,13 @@ use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Attribute;
+use App\Models\BestSeller;
+use Carbon\Carbon;
 use App\Models\ProductImage;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\DB;
 
 // class ProductController extends Controller
 // {
@@ -174,20 +177,6 @@ class ProductController extends Controller
     {
         return response()->json($product->load(['category', 'brand', 'images.color', 'attributes']));
     }
-
-
-    // public function confirmPrice(Request $request)
-    // {
-    //     $productId = $request->product_id ?: 1;
-    //     $product = Product::find($productId);
-    //     $price = $product->price;
-    //     $baseCurrency = $product->baseCurrency ?:'USD';
-    //     $returnCurrency = $request->returnCurrency ?:'USD';
-
-    //     $convertedPrice = $this->generalService->convertMoney($baseCurrency, $price, $returnCurrency);
-
-    //     return $this->success('Price converted successfully', ['price' => $convertedPrice], [], 200);
-    // }
 
 
     public function confirmPrice(Request $request)
@@ -483,5 +472,78 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Product deleted successfully.']);
     }
+
+
+    //create and get best selling products
+    // public function bestSeller(Request $request)
+    // {
+    //     //check for the created by of the item of the product on the Best Seller list, if older than 1 month, clear table and re-populate
+    //     // $check = BestSeller::where('created_at', '<', Carbon::now()->subMonth())->first();
+    //     // if($check){
+    //     //     BestSeller::truncate();
+    //     // }
+
+    //     // check orders table for the best selling products
+    //     $products = Product::select('products.*', 'order_items.product_id', 'order_items.quantity', 'order_items.price_per_unit', 'order_items.total_price', 'order_items.currency', 'order_items.created_at')
+    //         ->join('order_items', 'products.id', '=', 'order_items.product_id')
+    //         ->orderBy('order_items.quantity', 'desc')
+    //         ->limit(10)
+    //         ->get();
+
+    //     //store the best selling products in the Best Seller table
+    //     foreach($products as $product){
+    //         BestSeller::create([
+    //             'product_id' => $product->id,
+    //             'orders_count' => $product->quantity,
+    //         ]);
+    //     }
+
+    //     //get the best selling products from the Best Seller table
+    //     $bestSellers = BestSeller::with('product')->get();
+
+    //     return $this->success('Products fetched successfully', $bestSellers, [], 200);
+    // }
+
+    public function bestSeller(Request $request)
+    {
+        // Check if the oldest record in the BestSeller table is older than 1 month
+        $oldestRecord = BestSeller::orderBy('created_at', 'asc')->first();
+
+        if ($oldestRecord && $oldestRecord->created_at < Carbon::now()->subMonth() || !$oldestRecord) {
+            // Clear the table and repopulate it
+            BestSeller::truncate();
+
+            // Fetch the top products by sales quantity from the orders
+            $products = Product::select(
+                'products.id as product_id',
+                DB::raw('SUM(order_items.quantity) as orders_count')
+            )
+                ->join('order_items', 'products.id', '=', 'order_items.product_id')
+                ->groupBy('products.id')
+                ->orderBy('orders_count', 'desc')
+                ->limit(10) // Limit to top 10 products
+                ->get();
+
+            // Update or create best-selling products in the BestSeller table
+            foreach ($products as $product) {
+                BestSeller::updateOrCreate(
+                    ['product_id' => $product->product_id], // Unique key to match existing records
+                    ['orders_count' => $product->orders_count] // Update or set the total orders count
+                );
+            }
+        }
+
+        // Fetch the best-selling products from the BestSeller table
+        // $bestSellers = BestSeller::with('product')->get();
+        $bestSellers = BestSeller::with([
+            'product' => function ($query) {
+                $query->with(['category', 'brand', 'images.color', 'attributes']);
+            }
+        ])->get();
+
+        return $this->success('Products fetched successfully', $bestSellers, [], 200);
+    }
+
+
 }
 
