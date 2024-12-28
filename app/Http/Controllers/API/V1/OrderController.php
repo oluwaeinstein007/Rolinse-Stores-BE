@@ -89,7 +89,8 @@ class OrderController extends Controller
 
     public function placeOrder(Request $request)
     {
-        $user = $request->user(); // Assuming the user is authenticated
+        $user = $request->authUser;
+
         $products = $request->input('products', []);
         $returnCurrency = $request->input('returnCurrency', 'USD');
 
@@ -142,7 +143,6 @@ class OrderController extends Controller
         }
 
         if (empty($orderItems)) {
-            // If no valid products are found, return an error
             return response()->json([
                 'error' => 'No valid products found to place an order.',
                 'missing_products' => $missingProducts
@@ -151,7 +151,7 @@ class OrderController extends Controller
 
         // Step 2: Create the order
         $order = Order::create([
-            'user_id' => $user->id,
+            'user_email' => $user->email ?? $request->email,
             'order_number' => 'ORD-' . strtoupper(uniqid()),
             'status' => 'pending',
             'grand_total' => $grandTotal,
@@ -165,7 +165,6 @@ class OrderController extends Controller
         }
 
         if($request->has('promo_code')){
-            //attach
             $promo = AdminPromo::where('promo_code', $request->promo_code)->first();
             if($promo){
                 $promo->users()->attach($user->id);
@@ -195,31 +194,14 @@ class OrderController extends Controller
     }
 
 
-
-
-
-    // public function getOrderHistory(Request $request)
-    // {
-    //     $user = $request->user(); // Ensure the user is authenticated
-
-    //     $orders = Order::with(['items.product']) // Eager load OrderItems and their associated Products
-    //         ->where('user_id', $user->id)
-    //         ->orderBy('created_at', 'desc')
-    //         ->get();
-
-    //     return $this->success('Order history retrieved successfully', $orders, [], 200);
-    // }
-
-
     public function getOrderHistory(Request $request)
     {
-        $user = $request->user(); // Ensure the user is authenticated
+        $user = $request->authUser;
 
-        // Use pagination with eager loading
-        $orders = Order::with(['items.product']) // Eager load OrderItems and their associated Products
-            ->where('user_id', $user->id)
+        $orders = Order::with(['items.product'])
+            ->where('user_email', $user->email ?? $request->email)
             ->orderBy('created_at', 'desc')
-            ->paginate(10); // Paginate with 10 orders per page
+            ->paginate(10);
 
         return $this->success('Order history retrieved successfully', $orders, [], 200);
     }

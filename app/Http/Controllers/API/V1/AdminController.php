@@ -81,11 +81,13 @@ class AdminController extends Controller
     public function getUserMetaData()
     {
         $users = User::all();
+        $newUsers = $users->where('created_at', '>=', Carbon::now()->subDays(7))->count();
         $totalUsers = $users->count();
         $activeUsers = $users->where('is_active', true)->count();
         $verifiedUsers = $users->where('email_verified_at', '!=', null)->count();
         $inactiveUsers = $users->where('is_active', false)->count();
         $deletedUsers = User::onlyTrashed()->count();
+        $growthRate = $totalUsers > 0 ? (($newUsers / $totalUsers) * 100) : 0;
 
         $data = [
             'total_users' => $totalUsers,
@@ -93,6 +95,8 @@ class AdminController extends Controller
             'verified_users' => $verifiedUsers,
             'inactive_users' => $inactiveUsers,
             'deleted_users' => $deletedUsers,
+            'new_users' => $newUsers,
+            'growth_rate' => $growthRate,
         ];
 
         return $this->success('User metadata retrieved successfully', $data, [], 200);
@@ -176,31 +180,31 @@ class AdminController extends Controller
     }
 
 
-    public function adminGetProduct(Request $request, $id = null)
-    {
-        $query = Product::query();
+    // public function adminGetProduct(Request $request, $id = null)
+    // {
+    //     $query = Product::query();
 
-        if ($id) {
-            $product = $query->find($id);
+    //     if ($id) {
+    //         $product = $query->find($id);
 
-            if (!$product) {
-                return response()->json(['message' => 'Product not found'], 404);
-            }
+    //         if (!$product) {
+    //             return response()->json(['message' => 'Product not found'], 404);
+    //         }
 
-            return response()->json($product, 200);
-        }
+    //         return response()->json($product, 200);
+    //     }
 
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
+    //     if ($request->has('status')) {
+    //         $query->where('status', $request->status);
+    //     }
 
-        if ($request->has('visibility')) {
-            $query->where('visibility', $request->visibility);
-        }
+    //     if ($request->has('visibility')) {
+    //         $query->where('visibility', $request->visibility);
+    //     }
 
-        $products = $query->get();
-        return response()->json(['message' => 'Product filter successfully', 'data' => $products], 200);
-    }
+    //     $products = $query->get();
+    //     return response()->json(['message' => 'Product filter successfully', 'data' => $products], 200);
+    // }
 
 
     /*---------------------------------Admin Promo---------------------------------*/
@@ -307,15 +311,13 @@ class AdminController extends Controller
 
     public function getTransactions(Request $request) {
         $transactionId = $request->input('transactionId');
-        $userId = $request->input('userId');
-        $userEmail = $request->input('userEmail');
+        $user_email = $request->input('userEmail');
         $type = $request->input('type');
 
         if ($transactionId) {
             $transaction = Transaction::where('transaction_id', $transactionId)
                 ->with([
-                    'sender:id,full_name,email,phone_number,whatsapp_number',
-                    'receiver:id,full_name,email,bank_name,bank_account_name,bank_account_number,phone_number,whatsapp_number'
+                    'orders:id,order_number,grand_total,currency',
                 ])->first();
 
             return $transaction
@@ -323,14 +325,8 @@ class AdminController extends Controller
                 : response()->json(['message' => 'Transaction not found.'], 404);
         }
 
-        if ($userEmail) {
-            $user = User::where('email', $userEmail)->first();
-            $userId = $user->id ?? null;
-        }
-
-        if ($userId) {
-            $sendOrReceive = $type == 'incoming' ? 'sender_user_id' : 'receiver_user_id';
-            $transactions = Transaction::where($sendOrReceive, $userId)
+        if ($user_email) {
+            $transactions = Transaction::where('user_email', $user_email)
                 ->with([
                     'sender:id,full_name,email,phone_number,whatsapp_number',
                     'receiver:id,full_name,email,bank_name,bank_account_name,bank_account_number,phone_number,whatsapp_number'
@@ -342,8 +338,7 @@ class AdminController extends Controller
         }
 
         $transactions = Transaction::with([
-                'sender:id,full_name,email,phone_number,whatsapp_number',
-                    'receiver:id,full_name,email,bank_name,bank_account_name,bank_account_number,phone_number,whatsapp_number'
+                'orders:id,order_number,grand_total,currency',
             ])->get();
 
         return $transactions->isNotEmpty()

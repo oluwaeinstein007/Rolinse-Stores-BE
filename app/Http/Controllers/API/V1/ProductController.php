@@ -293,9 +293,6 @@ class ProductController extends Controller
             ->limit(4)
             ->get();
 
-        // foreach ($relatedProducts as $relatedProduct) {
-        //     $relatedProduct->price = $this->generalService->convertMoney($relatedProduct->baseCurrency ?? 'USD', $relatedProduct->price, $returnCurrency);
-        // }
         // Convert prices of related products
         $relatedProducts->each(function ($relatedProduct) use ($returnCurrency) {
             $relatedProduct->price = $this->generalService->convertMoney(
@@ -310,7 +307,7 @@ class ProductController extends Controller
             'related_products' => $relatedProducts,
         ];
 
-        return response()->json($data);
+        return $this->success('Products fetched successfully', $data, [], 200);
     }
 
 
@@ -421,7 +418,7 @@ class ProductController extends Controller
         }
 
         // Return paginated results as JSON
-        return $this->success('Product data', $products, [], 200);
+        return $this->success('Products fetched successfully', $products, [], 200);
     }
 
 
@@ -433,7 +430,7 @@ class ProductController extends Controller
             'women' => ['womens-clothing', 'womens-footwear', 'womens-accessories'],
             'kids' => ['kids-clothing', 'kids-footwear', 'kids-accessories'],
             'accessories' => ['mens-accessories', 'mens-accessories', 'mens-accessories'],
-            'mens-accessories' => ['mens-accessories']
+            // 'mens-accessories' => ['mens-accessories']
         ];
 
         // Check if the category is valid

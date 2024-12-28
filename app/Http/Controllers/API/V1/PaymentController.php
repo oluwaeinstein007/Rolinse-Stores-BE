@@ -17,11 +17,12 @@ class PaymentController extends Controller
     // public function pay(MakePaymentRequest $request)
     public function pay(Request $request)
     {
+        $user = $request->authUser;
         $paymentTransaction = Transaction::create([
             'reference' => strtoupper(
             str_replace('_', ' ', now()->timestamp . bin2hex(random_bytes(6)))),
             'amount' => $request->amount,
-            // 'user_id' => auth()->user()->id,
+            'user_email' => $user->email ?? $request->email,
             'payment_gateway' => PaymentGateway::STRIPE->value,
             'type' => TransactionType::ONEOFF->value,
             'status' => TransactionStatus::PENDING->value,

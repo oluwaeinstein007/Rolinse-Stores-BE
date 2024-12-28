@@ -11,6 +11,7 @@ use App\Http\Controllers\API\V1\UserController;
 
 //import admin middleware
 use App\Http\Middleware\Admin;
+use App\Http\Middleware\Optional;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -31,25 +32,6 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::post('/verify-refcode', [AuthController::class, 'verifyReferralCode']);
 
-        Route::prefix('products')->group(function () {
-            // Route::post('/', [ProductController::class, 'store']);
-            Route::get('/', [ProductController::class, 'getAllProducts']);
-            // Route::put('/{id}', [ProductController::class, 'update']);
-            // Route::delete('/{id}', [ProductController::class, 'destroy']);
-            Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-            Route::get('/get-types', [ProductController::class, 'getTypes']);
-            Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-            Route::get('/filter', [ProductController::class, 'index']);
-            Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
-        });
-
-        Route::prefix('payment')->group(function () {
-            Route::prefix('stripe')->group(function () {
-                Route::get('pay', [PaymentController::class, 'pay']);
-                Route::get('confirm', [PaymentController::class, 'confirmPayment']);
-                Route::post('webhook', [PaymentController::class, 'webhook']);
-            });
-        });
     });
 
 
@@ -98,22 +80,16 @@ Route::prefix('v1')->group(callback: function () {
             });
 
 
-            Route::prefix('products')->group(function () {
-                Route::post('/', [ProductController::class, 'store']);
-                // Route::get('/', [ProductController::class, 'getAllProducts']);
-                Route::put('/{id}', [ProductController::class, 'update']);
-                Route::delete('/{id}', [ProductController::class, 'destroy']);
-                // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-                // Route::get('/get-types', [ProductController::class, 'getTypes']);
-                // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-                // Route::get('/filter', [ProductController::class, 'index']);
-            });
-
-
-            Route::prefix('orders')->group(function () {
-                Route::post('/', [OrderController::class, 'placeOrder']);
-                Route::get('/history', [OrderController::class, 'getOrderHistory']);
-            });
+            // Route::prefix('products')->group(function () {
+            //     Route::post('/', [ProductController::class, 'store']);
+            //     // Route::get('/', [ProductController::class, 'getAllProducts']);
+            //     Route::put('/{id}', [ProductController::class, 'update']);
+            //     Route::delete('/{id}', [ProductController::class, 'destroy']);
+            //     // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+            //     // Route::get('/get-types', [ProductController::class, 'getTypes']);
+            //     // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+            //     // Route::get('/filter', [ProductController::class, 'index']);
+            // });
 
             //payment rout prefix
             // Route::prefix('payment')->group(function () {
@@ -125,13 +101,42 @@ Route::prefix('v1')->group(callback: function () {
         });
 
 
+        Route::middleware([Optional::class])->prefix('user')->group(function () {
+            Route::prefix('products')->group(function () {
+                Route::get('/', [ProductController::class, 'getAllProducts']);
+                Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+                Route::get('/get-types', [ProductController::class, 'getTypes']);
+                Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+                Route::get('/filter', [ProductController::class, 'index']);
+                Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
+            });
+
+            Route::prefix('orders')->group(function () {
+                Route::post('/', [OrderController::class, 'placeOrder']);
+                Route::get('/history', [OrderController::class, 'getOrderHistory']);
+            });
+
+            Route::prefix('payment')->group(function () {
+                Route::prefix('stripe')->group(function () {
+                    Route::get('pay', [PaymentController::class, 'pay']);
+                    Route::get('confirm', [PaymentController::class, 'confirmPayment']);
+                    Route::post('webhook', [PaymentController::class, 'webhook']);
+                });
+            });
+        });
+
+
 
         Route::middleware([Admin::class])->prefix('admin')->group(function () {
-            Route::prefix('levels')->group(function () {
-                Route::post('/', [AdminController::class, 'createLevel']);
-                Route::get('/{id?}', [AdminController::class, 'getLevels']);
-                Route::put('/{id}', [AdminController::class, 'updateLevel']);
-                Route::delete('/{id}', [AdminController::class, 'deleteLevel']);
+            Route::prefix('products')->group(function () {
+                Route::post('/', [ProductController::class, 'store']);
+                // Route::get('/', [ProductController::class, 'getAllProducts']);
+                Route::put('/{id}', [ProductController::class, 'update']);
+                Route::delete('/{id}', [ProductController::class, 'destroy']);
+                // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
+                // Route::get('/get-types', [ProductController::class, 'getTypes']);
+                // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
+                // Route::get('/filter', [ProductController::class, 'index']);
             });
 
             Route::prefix('settings')->group(function () {
