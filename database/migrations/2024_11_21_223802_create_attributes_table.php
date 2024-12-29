@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('type'); // e.g., 'color', 'size'
             $table->string('value'); // e.g., 'Red', 'Large'
+            $table->string('hex_code')->nullable(); // e.g., '#FF0000'
             $table->timestamps();
         });
     }

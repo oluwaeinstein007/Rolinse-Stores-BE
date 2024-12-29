@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Attribute extends Model
 {
-    protected $fillable = ['type', 'value'];
+    protected $fillable = ['type', 'value', 'hex_code'];
 
     // public function products()
     // {

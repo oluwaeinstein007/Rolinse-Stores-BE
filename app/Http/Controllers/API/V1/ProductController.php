@@ -119,10 +119,10 @@ class ProductController extends Controller
     // }
     public function getTypes()
     {
-        $brands = Brand::select('id', 'name')->get();
-        $categories = Category::select('id', 'name')->get();
+        $brands = Brand::select('id', 'name', 'slug', 'image')->get();
+        $categories = Category::select('id', 'name', 'slug', 'image')->get();
         $sizes = Attribute::where('type', 'size')->select('id','type','value')->get();
-        $colors = Attribute::where('type', 'color')->select('id','type','value')->get();
+        $colors = Attribute::where('type', 'color')->select('id','type','value', 'hex_code')->get();
 
         $data = [
             'brands' => $brands,
@@ -473,36 +473,6 @@ class ProductController extends Controller
         return response()->json(['message' => 'Product deleted successfully.']);
     }
 
-
-    //create and get best selling products
-    // public function bestSeller(Request $request)
-    // {
-    //     //check for the created by of the item of the product on the Best Seller list, if older than 1 month, clear table and re-populate
-    //     // $check = BestSeller::where('created_at', '<', Carbon::now()->subMonth())->first();
-    //     // if($check){
-    //     //     BestSeller::truncate();
-    //     // }
-
-    //     // check orders table for the best selling products
-    //     $products = Product::select('products.*', 'order_items.product_id', 'order_items.quantity', 'order_items.price_per_unit', 'order_items.total_price', 'order_items.currency', 'order_items.created_at')
-    //         ->join('order_items', 'products.id', '=', 'order_items.product_id')
-    //         ->orderBy('order_items.quantity', 'desc')
-    //         ->limit(10)
-    //         ->get();
-
-    //     //store the best selling products in the Best Seller table
-    //     foreach($products as $product){
-    //         BestSeller::create([
-    //             'product_id' => $product->id,
-    //             'orders_count' => $product->quantity,
-    //         ]);
-    //     }
-
-    //     //get the best selling products from the Best Seller table
-    //     $bestSellers = BestSeller::with('product')->get();
-
-    //     return $this->success('Products fetched successfully', $bestSellers, [], 200);
-    // }
 
     public function bestSeller(Request $request)
     {

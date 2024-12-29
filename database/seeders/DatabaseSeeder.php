@@ -22,9 +22,9 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             BrandSeeder::class,
             AttributeSeeder::class,
-            // ProductSeeder::class,
-            ProductAttributeSeeder::class,
+            ProductSeeder::class,
             BestSellerSeeder::class,
+            // ProductAttributeSeeder::class,
         ]);
 
         // User::factory()->create([

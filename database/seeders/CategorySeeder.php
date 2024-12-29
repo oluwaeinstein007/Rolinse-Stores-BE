@@ -11,26 +11,28 @@ class CategorySeeder extends Seeder
     public function run()
     {
         $categories = [
-            "Men’s Clothing",
-            "Men's Footwear",
-            "Men's Accessories",
-            "Women’s Clothing",
-            "Women’s Footwear",
-            "Women’s Accessories",
-            'Kids Clothing',
-            'Kids Footwear',
-            'Kids Accessories',
-            'Sportswear',
+            ['name' => "Men’s Clothing", 'image' => asset('storage/Categories/men_clothing.jpg')],
+            ['name' => "Men's Footwear", 'image' => asset('storage/Categories/men_footwear.jpg')],
+            ['name' => "Men's Accessories", 'image' => asset('storage/Categories/men_accessories.jpg')],
+            ['name' => "Women’s Clothing", 'image' => asset('storage/Categories/women_clothing.jpg')],
+            ['name' => "Women’s Footwear", 'image' => asset('storage/Categories/women_footwear.jpg')],
+            ['name' => "Women’s Accessories", 'image' => asset('storage/Categories/women_accessories.jpg')],
+            ['name' => 'Kids Clothing', 'image' => asset('storage/Categories/kids_clothing.jpg')],
+            ['name' => 'Kids Footwear', 'image' => asset('storage/Categories/kids_footwear.jpg')],
+            ['name' => 'Kids Accessories', 'image' => asset('storage/Categories/kids_accessories.jpg')],
+            ['name' => 'Sportswear', 'image' => asset('storage/Categories/sportswear.jpg')],
         ];
 
         foreach ($categories as $category) {
             Category::updateOrCreate(
-                ['name' => $category],
+                ['name' => $category['name']],
                 [
-                    'name' => $category,
-                    'slug' => Str::slug($category, '-') // Generate and assign a slug
+                    'name' => $category['name'],
+                    'slug' => Str::slug($category['name'], '-'),
+                    'image' => $category['image'],
                 ]
             );
         }
     }
 }
+
