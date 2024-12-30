@@ -23,6 +23,9 @@ class CategorySeeder extends Seeder
             ['name' => 'Sportswear', 'image' => asset('storage/Categories/sportswear.jpg')],
         ];
 
+        // ['name' => "Men’s Clothing", 'image' => url('storage/Categories/men_clothing.jpg')],
+
+
         foreach ($categories as $category) {
             Category::updateOrCreate(
                 ['name' => $category['name']],
