@@ -34,6 +34,16 @@ return new class extends Migration
             $table->text('description');
             $table->string('material');
             $table->decimal('price', 10, 2);
+
+            // $table->boolean('is_deal_of_month')->default(false); // For "Deal of the Month"
+            // $table->string('deal_type')->nullable(); // For "Special Deals" (e.g., Christmas, Black Friday)
+            // $table->foreign('special_deal_deal_type')->nullable()->constrained()->onDelete('set null');
+            //reference deal_type from special_deals table
+            // $table->foreign('deal_type')->references('deal_type')->on('special_deals')->onDelete('set null');
+            $table->string('special_deal_slug')->nullable(); // Define the column before adding the foreign key
+            $table->foreign('special_deal_slug')->references('slug')->on('special_deals')->onDelete('set null');
+            $table->decimal('discount', 5, 2)->default(0.00); // Discount percentage
+
             $table->timestamps();
         });
     }

@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Attribute;
 use App\Models\ProductImage;
 use Faker\Factory as Faker;
+use Illuminate\Support\Str;
 
 class ProductSeeder extends Seeder
 {
@@ -44,6 +45,30 @@ class ProductSeeder extends Seeder
                 ]);
             }
 
+        }
+
+
+        $deals = [
+            ['name' => "Deal of the Month"],
+            ['name' => "Christmas Sale"],
+            ['name' => "New Year Sale"],
+            ['name' => "Black Friday Deal"],
+            ['name' => "Summer Sale"],
+            ['name' => "Winter Sale"],
+            ['name' => "Spring Sale"],
+            ['name' => "Autumn Sale"],
+            ['name' => "Easter Sale"],
+            ['name' => "Valentine's Day Deal"],
+        ];
+
+        //update some products with special deals
+        $products = Product::inRandomOrder()->limit(15)->get();
+        foreach ($products as $product) {
+            $product->update([
+                // 'deal_type' => $deals[rand(0, 9)]['name'],
+                'special_deal_slug' => Str::slug($deals[rand(0, 9)]['name'], '_'),
+                'discount' => rand(10, 100),
+            ]);
         }
     }
 }

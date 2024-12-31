@@ -11,6 +11,7 @@ use App\Models\Attribute;
 use App\Models\BestSeller;
 use Carbon\Carbon;
 use App\Models\ProductImage;
+use App\Models\SpecialDeals;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
@@ -513,7 +514,6 @@ class ProductController extends Controller
 
         return $this->success('Products fetched successfully', $bestSellers, [], 200);
     }
-
 
 }
 

@@ -18,7 +18,7 @@ class Product extends Model
     //     'color',
     //     'stock'
     // ];
-    protected $fillable = ['category_id', 'brand_id', 'name', 'description', 'material', 'price'];
+    protected $fillable = ['category_id', 'brand_id', 'name', 'description', 'material', 'price', 'deal_type', 'discount'];
 
     public function category()
     {

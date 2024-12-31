@@ -8,6 +8,7 @@ use App\Http\Controllers\API\V1\OrderController;
 use App\Http\Controllers\API\V1\PaymentController;
 use App\Http\Controllers\API\V1\ProductController;
 use App\Http\Controllers\API\V1\UserController;
+use App\Http\Controllers\API\V1\DealsController;
 
 //import admin middleware
 use App\Http\Middleware\Admin;
@@ -58,6 +59,15 @@ Route::prefix('v1')->group(callback: function () {
                 Route::get('confirm', [PaymentController::class, 'confirmPayment']);
                 Route::post('webhook', [PaymentController::class, 'webhook']);
             });
+        });
+
+        Route::prefix('deals')->group(function () {
+            Route::get('types', [DealsController::class, 'getDealTypes']);
+            Route::post('add-product', [DealsController::class, 'addProductDeal']);
+            Route::delete('clear-product', [DealsController::class, 'clearProductDeal']);
+            Route::get('get-offers/{dealType?}', [DealsController::class, 'getSpecialDeals']);
+            Route::post('create-deal-type/{slug?}', [DealsController::class, 'createOrUpdateDealType']);
+            Route::delete('delete-deal-type/{id?}', [DealsController::class, 'deleteDealTypes']);
         });
     });
 
