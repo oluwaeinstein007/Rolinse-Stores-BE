@@ -23,9 +23,10 @@ class DatabaseSeeder extends Seeder
             BrandSeeder::class,
             AttributeSeeder::class,
             SpecialDealSeeder::class,
+            ProductAttributeSeeder::class,
             ProductSeeder::class,
             BestSellerSeeder::class,
-            ProductAttributeSeeder::class,
+
             OrderSeeder::class,
         ]);
 
