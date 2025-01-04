@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             BestSellerSeeder::class,
             ProductAttributeSeeder::class,
+            OrderSeeder::class,
         ]);
 
         // User::factory()->create([

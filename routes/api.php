@@ -46,8 +46,6 @@ Route::prefix('v1')->group(callback: function () {
             Route::get('/filter', [ProductController::class, 'index']);
             Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
             Route::get('/best-seller', [ProductController::class, 'bestSeller']);
-            Route::get('/product-distribution', [ProductController::class, 'getDistributionData']);
-
         });
 
         Route::prefix('orders')->group(function () {
@@ -148,7 +146,7 @@ Route::prefix('v1')->group(callback: function () {
                 // Route::get('/', [ProductController::class, 'getAllProducts']);
                 Route::put('/{id}', [ProductController::class, 'update']);
                 Route::delete('/{id}', [ProductController::class, 'destroy']);
-                Route::get('/product-distribution', [ProductController::class, 'getDistributionData']);
+                Route::get('/distribution', [ProductController::class, 'getProductDistribution']);
                 // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
                 // Route::get('/get-types', [ProductController::class, 'getTypes']);
                 // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
@@ -162,11 +160,8 @@ Route::prefix('v1')->group(callback: function () {
                 Route::delete('/{id}', [AdminController::class, 'deleteAdminSetting']);
             });
 
-            Route::prefix('communities')->group(function () {
-                Route::post('/', [AdminController::class, 'createCommunity']);
-                Route::get('/{id?}', [AdminController::class, 'getCommunity']);
-                Route::put('/{id}', [AdminController::class, 'updateCommunity']);
-                Route::delete('/{id}', [AdminController::class, 'deleteCommunity']);
+            Route::prefix('orders')->group(function () {
+                Route::get('/distribution', [OrderController::class, 'getOrderDistribution']);
             });
 
             Route::prefix('customer')->group(function () {

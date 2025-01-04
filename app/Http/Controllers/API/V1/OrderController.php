@@ -152,61 +152,54 @@ class OrderController extends Controller
     }
 
 
-    //get category distribution pie chart
-    public function getCategorySalesDistribution()
+    public function getOrderDistribution()
     {
-        $orders = Order::with(['items.product.category'])
-            ->where('status', 'completed')
-            ->get();
-
-        $categoryDistribution = $orders->map(function ($order) {
-            return $order->items->map(function ($item) {
-                return $item->product->category->name;
-            });
-        })->flatten()->countBy();
-
-        return $this->success('Category distribution retrieved successfully', $categoryDistribution, [], 200);
-    }
-
-
-    //get brand distribution pie chart
-    public function getBrandSalesDistribution()
-    {
-        $orders = Order::with(['items.product.brand'])
-            ->where('status', 'completed')
-            ->get();
-
-        $brandDistribution = $orders->map(function ($order) {
-            return $order->items->map(function ($item) {
-                return $item->product->brand->name;
-            });
-        })->flatten()->countBy();
-
-        return $this->success('Brand distribution retrieved successfully', $brandDistribution, [], 200);
-    }
-
-
-    public function getOrderDistribution(){
-        if (request()->has('type') && request()->type === 'category') {
-            $orders =Order::with(['items.product.brand'])
-            ->where('status', 'completed')
-            ->get();
-        } elseif (request()->has('type') && request()->type === 'brand') {
-            $orders =Order::with(['items.product.brand'])
-            ->where('status', 'completed')
-            ->get();
-        } else {
+        $type = request()->get('type');
+        if (!in_array($type, ['category', 'brand'])) {
             return response()->json(['message' => 'Invalid distribution type provided'], 400);
         }
 
-        $data = $orders->map(function ($order) {
-            return $order->items->map(function ($item) {
-                return $item->product->brand->name;
-            });
-        })->flatten()->countBy();
+        // Determine relationship based on `type`
+        $relation = $type === 'category' ? 'items.product.category' : 'items.product.brand';
 
-        return $this->success('Distribution data retrieved successfully', $data, [], 200);
+        // Fetch orders with the appropriate relationship
+        $orders = Order::with($relation)
+            ->where('status', 'completed')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return $this->success('No completed orders found', [], [], 200);
+        }
+
+        // Aggregate distribution data
+        $counts = $orders->flatMap(function ($order) use ($type) {
+            return $order->items->map(function ($item) use ($type) {
+                return $type === 'category'
+                    ? $item->product->category->name ?? 'Uncategorized'
+                    : $item->product->brand->name ?? 'Unbranded';
+            });
+        })->countBy();
+
+        // Total count for percentage calculation
+        $total = $counts->sum();
+
+        // Format the data as an array of objects
+        $distribution = $counts->map(function ($count, $name) use ($total) {
+            return [
+                'name' => $name,
+                'count' => $count,
+                'percentage' => number_format(($count / $total) * 100, 2),
+            ];
+        })->values(); // Convert to array
+
+        return response()->json([
+            'message' => 'Order data fetched successfully',
+            'total' => $total,
+            'data' => $distribution,
+        ], 200);
     }
+
+
 
 
 }

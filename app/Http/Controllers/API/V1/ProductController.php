@@ -556,41 +556,7 @@ class ProductController extends Controller
     }
 
 
-    //get category distribution pie chart
-    public function getCategoryDistribution()
-    {
-        $categories = Category::withCount('products')->get();
-
-        $data = $categories->map(function ($category) {
-            return [
-                'name' => $category->name,
-                'count' => $category->products_count,
-                'percentage' => $category->products_count / Product::count() * 100,
-            ];
-        });
-
-        return $this->success('Category distribution fetched successfully', $data, [], 200);
-    }
-
-
-    //get brand distribution pie chart
-    public function getBrandDistribution()
-    {
-        $brands = Brand::withCount('products')->get();
-
-        $data = $brands->map(function ($brand) {
-            return [
-                'name' => $brand->name,
-                'count' => $brand->products_count,
-                'percentage' => $brand->products_count / Product::count() * 100,
-            ];
-        });
-
-        return $this->success('Brand distribution fetched successfully', $data, [], 200);
-    }
-
-
-    public function getDistributionData()
+    public function getProductDistribution()
     {
         if (request()->has('type') && request()->type === 'category') {
             $productData = Brand::withCount('products')->get();
@@ -604,12 +570,11 @@ class ProductController extends Controller
             return [
                 'name' => $product->name,
                 'count' => $product->products_count,
-                // 'percentage' => $product->products_count / Product::count() * 100,
-                'percentage' => round($product->products_count / Product::count() * 100, 2),
+                'percentage' => number_format($product->products_count / Product::count() * 100, 2, '.', ''),
             ];
         });
 
-        return $this->success('Distribution data fetched successfully', $data, [], 200);
+        return $this->success('Product data fetched successfully', $data, [], 200);
     }
 
 }
