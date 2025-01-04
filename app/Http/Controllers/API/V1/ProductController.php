@@ -189,8 +189,25 @@ class ProductController extends Controller
 
         // Save images
         foreach ($request->images as $image) {
-            $path = $image['file']->store('products', 'public');
-            $product->images()->create(['image_path' => $path, 'color_id' => $image['color_id']]);
+            // Get the original file extension
+            $fileExtension = $image['file']->getClientOriginalExtension();
+
+            // Generate a unique, code-based file name
+            $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
+
+            // Save the file in the desired directory
+            $path = public_path('storage/products');
+            $image['file']->move($path, $fileName);
+
+            // Generate the full URL to the image
+            $imageUrl = url('storage/products/' . $fileName);
+
+            // Store the URL in the database
+            $product->images()->create([
+                'image_path' => $imageUrl,
+                'color_id' => $image['color_id']
+            ]);
+
         }
 
         return response()->json(['message' => 'Product created successfully.', 'product' => $product->load('images')], 201);
