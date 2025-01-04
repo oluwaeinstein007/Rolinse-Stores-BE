@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\OrderItem;
 use App\Models\AdminPromo;
 use App\Models\ProductImage;
+use App\Services\ActivityLogger;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
 
@@ -25,67 +26,6 @@ class OrderController extends Controller
     }
     //
 
-    // public function placeOrder(Request $request)
-    // {
-    //     $user = $request->user(); // Ensure the user is authenticated
-    //     $products = $request->input('products', []);
-    //     $returnCurrency = $request->input('returnCurrency', 'USD');
-
-    //     if (empty($products)) {
-    //         return $this->failure('No products provided', [], 400);
-    //     }
-
-    //     $orderItems = [];
-    //     $totalPrice = 0;
-
-    //     foreach ($products as $productData) {
-    //         $productId = $productData['product_id'];
-    //         $quantity = $productData['quantity'] ?? 1;
-
-    //         $product = Product::find($productId);
-    //         if (!$product) {
-    //             return $this->failure("Product with ID {$productId} not found", [], 404);
-    //         }
-
-    //         $baseCurrency = $product->baseCurrency ?: 'USD';
-    //         $price = $product->price;
-    //         $totalPriceForProduct = $price * $quantity;
-
-    //         $convertedPrice = $this->generalService->convertMoney($baseCurrency, $totalPriceForProduct, $returnCurrency);
-
-    //         $orderItems[] = [
-    //             'product_id' => $productId,
-    //             'quantity' => $quantity,
-    //             'price_per_unit' => $convertedPrice / $quantity,
-    //             'total_price' => $convertedPrice,
-    //             'currency' => $returnCurrency,
-    //         ];
-
-    //         $totalPrice += $convertedPrice;
-    //     }
-
-    //     // Create the order
-    //     $order = Order::create([
-    //         'user_id' => $user->id,
-    //         'order_number' => uniqid('ORD-'),
-    //         'status' => 'pending', // Default order status
-    //         'grand_total' => $totalPrice,
-    //         'item_count' => count($orderItems),
-    //     ]);
-
-    //     // Attach items to the order
-    //     foreach ($orderItems as $item) {
-    //         OrderItem::create(array_merge($item, ['order_id' => $order->id]));
-    //     }
-
-    //     return $this->success('Order placed successfully', [
-    //         'order_id' => $order->id,
-    //         'order_number' => $order->order_number,
-    //         'grand_total' => number_format($totalPrice, 2),
-    //         'currency' => $returnCurrency,
-    //         'items' => $orderItems,
-    //     ], [], 201);
-    // }
 
     public function placeOrder(Request $request)
     {
@@ -190,7 +130,12 @@ class OrderController extends Controller
             $response['missing_products'] = $missingProducts;
         }
 
-        return response()->json($response, 201);
+        $full_name = $user->first_name . ' ' . $user->last_name;
+        $this->notificationService->userNotification($user, 'Order', 'Order Placed', 'Order Placed.', 'You have placed an order with ID: ' . $order->order_number, false);
+        ActivityLogger::log('Order', 'Order Placed', 'The order with ID: ' . $order->order_number . ' has been placed by ' . $full_name, $user->id);
+
+        // return response()->json($response, 201);
+        return $this->success('Order placed successfully', $response, [], 201);
     }
 
 
@@ -207,7 +152,61 @@ class OrderController extends Controller
     }
 
 
+    //get category distribution pie chart
+    public function getCategorySalesDistribution()
+    {
+        $orders = Order::with(['items.product.category'])
+            ->where('status', 'completed')
+            ->get();
 
+        $categoryDistribution = $orders->map(function ($order) {
+            return $order->items->map(function ($item) {
+                return $item->product->category->name;
+            });
+        })->flatten()->countBy();
+
+        return $this->success('Category distribution retrieved successfully', $categoryDistribution, [], 200);
+    }
+
+
+    //get brand distribution pie chart
+    public function getBrandSalesDistribution()
+    {
+        $orders = Order::with(['items.product.brand'])
+            ->where('status', 'completed')
+            ->get();
+
+        $brandDistribution = $orders->map(function ($order) {
+            return $order->items->map(function ($item) {
+                return $item->product->brand->name;
+            });
+        })->flatten()->countBy();
+
+        return $this->success('Brand distribution retrieved successfully', $brandDistribution, [], 200);
+    }
+
+
+    public function getOrderDistribution(){
+        if (request()->has('type') && request()->type === 'category') {
+            $orders =Order::with(['items.product.brand'])
+            ->where('status', 'completed')
+            ->get();
+        } elseif (request()->has('type') && request()->type === 'brand') {
+            $orders =Order::with(['items.product.brand'])
+            ->where('status', 'completed')
+            ->get();
+        } else {
+            return response()->json(['message' => 'Invalid distribution type provided'], 400);
+        }
+
+        $data = $orders->map(function ($order) {
+            return $order->items->map(function ($item) {
+                return $item->product->brand->name;
+            });
+        })->flatten()->countBy();
+
+        return $this->success('Distribution data retrieved successfully', $data, [], 200);
+    }
 
 
 }

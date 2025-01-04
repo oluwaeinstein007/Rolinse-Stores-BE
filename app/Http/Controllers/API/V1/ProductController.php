@@ -98,6 +98,29 @@ class ProductController extends Controller
         // $this->middleware('auth');
     }
 
+    public function upload(Request $request)
+    {
+        $validated = $request->validate([
+            'media' => 'required|file',
+            'mediaType' => 'nullable|string|in:picture,gif,video',
+            'width' => 'nullable|integer',
+            'height' => 'nullable|integer',
+        ]);
+
+        $mediaUrl = $this->generalService->uploadMedia(
+            $validated['media'],
+            $validated['mediaType'] ?? 'picture',
+            $validated['width'] ?? null,
+            $validated['height'] ?? null
+        );
+
+        return response()->json([
+            'message' => 'Media uploaded successfully.',
+            'media_url' => $mediaUrl,
+        ]);
+    }
+
+
 
     public function index(Request $request)
     {
@@ -513,6 +536,63 @@ class ProductController extends Controller
         ])->get();
 
         return $this->success('Products fetched successfully', $bestSellers, [], 200);
+    }
+
+
+    //get category distribution pie chart
+    public function getCategoryDistribution()
+    {
+        $categories = Category::withCount('products')->get();
+
+        $data = $categories->map(function ($category) {
+            return [
+                'name' => $category->name,
+                'count' => $category->products_count,
+                'percentage' => $category->products_count / Product::count() * 100,
+            ];
+        });
+
+        return $this->success('Category distribution fetched successfully', $data, [], 200);
+    }
+
+
+    //get brand distribution pie chart
+    public function getBrandDistribution()
+    {
+        $brands = Brand::withCount('products')->get();
+
+        $data = $brands->map(function ($brand) {
+            return [
+                'name' => $brand->name,
+                'count' => $brand->products_count,
+                'percentage' => $brand->products_count / Product::count() * 100,
+            ];
+        });
+
+        return $this->success('Brand distribution fetched successfully', $data, [], 200);
+    }
+
+
+    public function getDistributionData()
+    {
+        if (request()->has('type') && request()->type === 'category') {
+            $productData = Brand::withCount('products')->get();
+        } elseif (request()->has('type') && request()->type === 'brand') {
+            $productData = Brand::withCount('products')->get();
+        } else {
+            return response()->json(['message' => 'Invalid distribution type provided'], 400);
+        }
+
+        $data = $productData->map(function ($product) {
+            return [
+                'name' => $product->name,
+                'count' => $product->products_count,
+                // 'percentage' => $product->products_count / Product::count() * 100,
+                'percentage' => round($product->products_count / Product::count() * 100, 2),
+            ];
+        });
+
+        return $this->success('Distribution data fetched successfully', $data, [], 200);
     }
 
 }

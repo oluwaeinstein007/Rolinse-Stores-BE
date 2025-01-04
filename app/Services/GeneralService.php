@@ -17,6 +17,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
+
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 use App\Models\ExchangeRate;
 use App\Models\ExchangeHistory;
@@ -29,6 +32,40 @@ class GeneralService
      * @param mixed $data
      * @return mixed
      */
+
+
+    public static function uploadMedia($media, $mediaType = 'picture', $width = null, $height = null)
+    {
+        $mediaType = strtolower($mediaType);
+
+        // Define base transformation
+        $transformation = [];
+        if ($width && $height) {
+            $transformation = [
+                'width' => $width,
+                'height' => $height,
+                'crop' => in_array($mediaType, ['gif', 'video']) ? 'scale' : 'fit',
+            ];
+        }
+
+        // Define base options
+        $options = [
+            'transformation' => $transformation ? [$transformation] : [],
+        ];
+
+        // Set resource type and format for GIFs and videos
+        if (in_array($mediaType, ['gif', 'video'])) {
+            $options['resource_type'] = 'video';
+            if ($mediaType === 'gif') {
+                $options['format'] = 'gif';
+            }
+        }
+
+        // Upload media
+        $uploadResponse = Cloudinary::uploadApi()->upload($media, $options);
+
+        return $uploadResponse['secure_url'] ?? '';
+    }
 
     public function generateReferralCode($name){
         $code = Str::random(5); // You can adjust the length as needed
