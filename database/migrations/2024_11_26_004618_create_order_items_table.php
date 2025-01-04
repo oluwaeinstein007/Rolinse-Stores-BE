@@ -16,7 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('order_id');
             $table->unsignedBigInteger('product_id');
             $table->integer('quantity');
-            $table->string('image')->nullable()->change();
+            // $table->string('image')->nullable()->change();
+            $table->string('image')->nullable();
             $table->decimal('price_per_unit', 10, 2);
             $table->decimal('total_price', 10, 2);
             $table->string('currency');

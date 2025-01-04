@@ -61,6 +61,7 @@ class OrderSeeder extends Seeder
                     'quantity' => $quantity,
                     // 'image' => $product->image ?? null,
                     // 'image' => ProductImage::where('product_id', $product->id)->first()->image_path ?? null,
+                    'image' => ProductImage::where('product_id', $product->id)->first()->image_path ?? null,
                     'price_per_unit' => $pricePerUnit,
                     'total_price' => $totalPrice,
                     'currency' => 'USD',
