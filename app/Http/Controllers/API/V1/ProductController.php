@@ -171,6 +171,7 @@ class ProductController extends Controller
             'images' => 'array',
             'images.*.file' => 'required|image|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
+            'discount' => 'nullable|numeric',
             // 'attributes' => 'array',
         ]);
 
