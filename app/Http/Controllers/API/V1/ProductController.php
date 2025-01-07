@@ -433,12 +433,12 @@ class ProductController extends Controller
         }
 
         // Apply pagination: get page and limit from the request or set defaults
-        // $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
-        // $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
+        $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
 
-        // // Paginate the query results
-        // $products = $query->paginate($perPage, ['*'], 'page', $page);
-        $products = $query->get();
+        // Paginate the query results
+        $products = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        // $products = $query->get();
 
         // If currency conversion is needed, apply the conversion
         if ($request->has('returnCurrency') && $request->returnCurrency) {
