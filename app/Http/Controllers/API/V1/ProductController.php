@@ -505,9 +505,10 @@ class ProductController extends Controller
 
 
 
-    public function destroy(Product $product)
-    {
-        foreach ($product->images as $image) {
+    public function destroy($id){
+        $product = Product::find($id);
+        $images = ProductImage::where('product_id', $id)->get();
+        foreach ($images as $image) {
             Storage::disk('public')->delete($image->image_path);
         }
 
