@@ -139,7 +139,6 @@ Route::prefix('v1')->group(callback: function () {
         });
 
 
-
         Route::middleware([Admin::class])->prefix('admin')->group(function () {
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);

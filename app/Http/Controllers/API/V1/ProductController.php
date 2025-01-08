@@ -266,20 +266,22 @@ class ProductController extends Controller
 
 
 
-    public function update(Request $request, Product $product)
+    public function update(Request $request, $id)
     {
         $validated = $request->validate([
             'name' => 'string|max:255',
             'description' => 'string',
             'category_id' => 'exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
-            'material' => 'string',
-            'price' => 'numeric',
-            'images' => 'array',
-            'images.*.file' => 'image|max:2048',
+            'price' => 'nullable|numeric',
+            'discount' => 'nullable|numeric',
+            'images' => 'nullable|array',
+            'images.*.file' => 'nullable|image|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
             'attributes' => 'array',
         ]);
+
+        $product = Product::findOrFail($id);
 
         $product->update($validated);
 
