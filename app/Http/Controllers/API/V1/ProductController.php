@@ -98,6 +98,29 @@ class ProductController extends Controller
         // $this->middleware('auth');
     }
 
+    public function upload(Request $request)
+    {
+        $validated = $request->validate([
+            'media' => 'required|file',
+            'mediaType' => 'nullable|string|in:picture,gif,video',
+            'width' => 'nullable|integer',
+            'height' => 'nullable|integer',
+        ]);
+
+        $mediaUrl = $this->generalService->uploadMedia(
+            $validated['media'],
+            $validated['mediaType'] ?? 'picture',
+            $validated['width'] ?? null,
+            $validated['height'] ?? null
+        );
+
+        return response()->json([
+            'message' => 'Media uploaded successfully.',
+            'media_url' => $mediaUrl,
+        ]);
+    }
+
+
 
     public function index(Request $request)
     {
@@ -148,6 +171,7 @@ class ProductController extends Controller
             'images' => 'array',
             'images.*.file' => 'required|image|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
+            'discount' => 'nullable|numeric',
             // 'attributes' => 'array',
         ]);
 
@@ -166,8 +190,25 @@ class ProductController extends Controller
 
         // Save images
         foreach ($request->images as $image) {
-            $path = $image['file']->store('products', 'public');
-            $product->images()->create(['image_path' => $path, 'color_id' => $image['color_id']]);
+            // Get the original file extension
+            $fileExtension = $image['file']->getClientOriginalExtension();
+
+            // Generate a unique, code-based file name
+            $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
+
+            // Save the file in the desired directory
+            $path = public_path('storage/products');
+            $image['file']->move($path, $fileName);
+
+            // Generate the full URL to the image
+            $imageUrl = url('storage/products/' . $fileName);
+
+            // Store the URL in the database
+            $product->images()->create([
+                'image_path' => $imageUrl,
+                'color_id' => $image['color_id']
+            ]);
+
         }
 
         return response()->json(['message' => 'Product created successfully.', 'product' => $product->load('images')], 201);
@@ -225,20 +266,22 @@ class ProductController extends Controller
 
 
 
-    public function update(Request $request, Product $product)
+    public function update(Request $request, $id)
     {
         $validated = $request->validate([
             'name' => 'string|max:255',
             'description' => 'string',
             'category_id' => 'exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
-            'material' => 'string',
-            'price' => 'numeric',
-            'images' => 'array',
-            'images.*.file' => 'image|max:2048',
+            'price' => 'nullable|numeric',
+            'discount' => 'nullable|numeric',
+            'images' => 'nullable|array',
+            'images.*.file' => 'nullable|image|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
             'attributes' => 'array',
         ]);
+
+        $product = Product::findOrFail($id);
 
         $product->update($validated);
 
@@ -396,7 +439,8 @@ class ProductController extends Controller
         $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
 
         // Paginate the query results
-        $products = $query->paginate($perPage, ['*'], 'page', $page);
+        $products = $query->latest()->paginate($perPage, ['*'], 'page', $page);
+        // $products = $query->get();
 
         // If currency conversion is needed, apply the conversion
         if ($request->has('returnCurrency') && $request->returnCurrency) {
@@ -463,9 +507,10 @@ class ProductController extends Controller
 
 
 
-    public function destroy(Product $product)
-    {
-        foreach ($product->images as $image) {
+    public function destroy($id){
+        $product = Product::find($id);
+        $images = ProductImage::where('product_id', $id)->get();
+        foreach ($images as $image) {
             Storage::disk('public')->delete($image->image_path);
         }
 
@@ -513,6 +558,28 @@ class ProductController extends Controller
         ])->get();
 
         return $this->success('Products fetched successfully', $bestSellers, [], 200);
+    }
+
+
+    public function getProductDistribution()
+    {
+        if (request()->has('type') && request()->type === 'category') {
+            $productData = Brand::withCount('products')->get();
+        } elseif (request()->has('type') && request()->type === 'brand') {
+            $productData = Brand::withCount('products')->get();
+        } else {
+            return response()->json(['message' => 'Invalid distribution type provided'], 400);
+        }
+
+        $data = $productData->map(function ($product) {
+            return [
+                'name' => $product->name,
+                'count' => $product->products_count,
+                'percentage' => number_format($product->products_count / Product::count() * 100, 2, '.', ''),
+            ];
+        });
+
+        return $this->success('Product data fetched successfully', $data, [], 200);
     }
 
 }

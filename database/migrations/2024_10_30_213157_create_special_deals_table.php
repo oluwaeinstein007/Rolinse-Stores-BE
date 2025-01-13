@@ -16,9 +16,6 @@ return new class extends Migration
             $table->string('deal_type')->nullable();
             $table->string('slug')->unique();
             $table->string('image')->nullable();
-            // $table->decimal('discount', 5, 2)->default(0.00);
-            // $table->date('start_date')->nullable();
-            // $table->date('end_date')->nullable();
             $table->timestamps();
         });
     }

@@ -29,7 +29,8 @@ class UserSeeder extends Seeder
                 'status' => 'active',
                 'password' => Hash::make('12345678'),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
+                'email_verified_at' => now()
             ],
             [
                 'first_name' => 'Jane',
@@ -41,7 +42,8 @@ class UserSeeder extends Seeder
                 'status' => 'active',
                 'password' => Hash::make('12345678'),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
+                'email_verified_at' => now()
             ],
             [
                 'first_name' => 'Olumide',
@@ -53,7 +55,8 @@ class UserSeeder extends Seeder
                 'status' => 'active',
                 'password' => Hash::make('12345678'),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
+                'email_verified_at' => now()
             ],
             [
                 'first_name' => 'User',
@@ -67,7 +70,8 @@ class UserSeeder extends Seeder
                 'status' => 'active',
                 'password' => Hash::make('12345678'),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
+                'email_verified_at' => now()
             ],
             [
                 'first_name' => 'User',
@@ -81,19 +85,9 @@ class UserSeeder extends Seeder
                 'status' => 'active',
                 'password' => Hash::make('12345678'),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
+                'email_verified_at' => now()
             ],
-            // [
-            //     'first_name' => 'Moderator',
-            //     'last_name' => 'One',
-            //     'email' => 'moderator@example.com',
-            //     'user_role_id' => 3,  // Moderator
-            //     'phone_number' => '08022223333',
-            //     'country' => 'Nigeria',
-            //     'status' => 'active',
-            //     'created_at' => now(),
-            //     'updated_at' => now()
-            // ],
         ];
 
         // Create or update users

@@ -34,16 +34,23 @@ class ProductSeeder extends Seeder
             // Assign attributes to the product
             $product->attributes()->sync($attributes->random(rand(3, 6))->pluck('id'));
 
-            // Add images to the product
-            for ($j = 1; $j <= rand(2, 5); $j++) {
-                $imagePath = $faker->image('public/storage/products', 640, 480, null, false);
+            //add images to the product
+            $placeholderImages = array_diff(scandir(public_path('storage/products')), ['.', '..']);
 
+            if (empty($placeholderImages)) {
+                throw new \Exception("No placeholder images found in the 'products' directory.");
+            }
+
+            for ($j = 1; $j <= rand(2, 5); $j++) {
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => url('storage/products/' . $imagePath),
+                    'image_path' => url('storage/products/' . $placeholderImages[array_rand($placeholderImages)]),
                     'color_id' => $attributes->where('type', 'color')->random()->id,
                 ]);
             }
+
+
+
 
         }
 

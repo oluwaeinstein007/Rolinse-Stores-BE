@@ -51,6 +51,7 @@ Route::prefix('v1')->group(callback: function () {
         Route::prefix('orders')->group(function () {
             Route::post('/', [OrderController::class, 'placeOrder']);
             Route::get('/history', [OrderController::class, 'getOrderHistory']);
+            // getOrderDistribution
         });
 
         Route::prefix('payment')->group(function () {
@@ -138,13 +139,13 @@ Route::prefix('v1')->group(callback: function () {
         });
 
 
-
         Route::middleware([Admin::class])->prefix('admin')->group(function () {
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);
                 // Route::get('/', [ProductController::class, 'getAllProducts']);
                 Route::put('/{id}', [ProductController::class, 'update']);
                 Route::delete('/{id}', [ProductController::class, 'destroy']);
+                Route::get('/distribution', [ProductController::class, 'getProductDistribution']);
                 // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
                 // Route::get('/get-types', [ProductController::class, 'getTypes']);
                 // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
@@ -158,20 +159,8 @@ Route::prefix('v1')->group(callback: function () {
                 Route::delete('/{id}', [AdminController::class, 'deleteAdminSetting']);
             });
 
-            Route::prefix('communities')->group(function () {
-                Route::post('/', [AdminController::class, 'createCommunity']);
-                Route::get('/{id?}', [AdminController::class, 'getCommunity']);
-                Route::put('/{id}', [AdminController::class, 'updateCommunity']);
-                Route::delete('/{id}', [AdminController::class, 'deleteCommunity']);
-            });
-
-            Route::prefix('products')->group(function () {
-                // Route::post('/', [AdminController::class, 'createLevel']);
-                // Route::get('/{id?}', [AdminController::class, 'getLevels']);
-                // Route::put('/{id}', [AdminController::class, 'updateLevel']);
-                // Route::delete('/{id}', [AdminController::class, 'deleteLevel']);
-                Route::get('/get-products/{id?}', [AdminController::class, 'adminGetProduct']);
-                Route::get('/change-approval-status/{id}', [AdminController::class, 'approveProduct']);
+            Route::prefix('orders')->group(function () {
+                Route::get('/distribution', [OrderController::class, 'getOrderDistribution']);
             });
 
             Route::prefix('customer')->group(function () {
