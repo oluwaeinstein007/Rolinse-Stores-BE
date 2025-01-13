@@ -435,7 +435,7 @@ class ProductController extends Controller
         }
 
         // Apply pagination: get page and limit from the request or set defaults
-        $perPage = $request->has('perPage') ? (int)$request->perPage : 15; // Default 15 products per page
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 30; // Default 15 products per page
         $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
 
         // Paginate the query results
@@ -482,7 +482,7 @@ class ProductController extends Controller
             return response()->json(['message' => 'Categories not found'], 404);
         }
 
-        $perPage = $request->has('perPage') ? (int)$request->perPage : 15;
+        $perPage = $request->has('perPage') ? (int)$request->perPage : 30;
         $page = $request->has('page') ? (int)$request->page : 1;
 
         // Fetch products related to the categories
