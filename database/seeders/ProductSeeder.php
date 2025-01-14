@@ -20,7 +20,7 @@ class ProductSeeder extends Seeder
         $categories = Category::all();
         $attributes = Attribute::all();
 
-        for ($i = 1; $i <= 30; $i++) {
+        for ($i = 1; $i <= 100; $i++) {
             // Create a product
             $product = Product::create([
                 'name' => $faker->words(3, true),

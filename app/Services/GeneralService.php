@@ -34,7 +34,24 @@ class GeneralService
      */
 
 
-    public static function uploadMedia($media, $mediaType = 'picture', $width = null, $height = null)
+    public function extractPublicId($imagePath)
+    {
+        // Parse the URL path
+        $path = parse_url($imagePath, PHP_URL_PATH);
+
+        // Remove the version and extract everything after it
+        $segments = explode('/', $path);
+        $versionIndex = array_search('upload', $segments) + 1; // Find the index after "upload"
+        $publicIdParts = array_slice($segments, $versionIndex + 1); // Get all segments after "vXXXXXX/"
+        $lastSegment = implode('/', $publicIdParts); // Rebuild the public_id with folder structure
+
+        $publicId = explode('.', $lastSegment)[0];
+        return $publicId;
+    }
+
+
+
+    public static function uploadMedia($media, $folder, $mediaType = 'picture', $width = null, $height = null)
     {
         $mediaType = strtolower($mediaType);
 
@@ -51,7 +68,12 @@ class GeneralService
         // Define base options
         $options = [
             'transformation' => $transformation ? [$transformation] : [],
+            'folder' => $folder ?? 'Random'
         ];
+
+        // if ($folder) {
+        //     $options['folder'] = $folder;
+        // }
 
         // Set resource type and format for GIFs and videos
         if (in_array($mediaType, ['gif', 'video'])) {

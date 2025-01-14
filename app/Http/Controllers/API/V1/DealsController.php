@@ -8,10 +8,21 @@ use App\Models\SpecialDeals;
 use App\Models\Product;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Services\GeneralService;
 
 class DealsController extends Controller
 {
     //
+    protected $generalService;
+    protected $notificationService;
+
+    public function __construct(GeneralService $generalService)
+    {
+        $this->generalService = $generalService;
+        // $this->middleware('auth');
+    }
+
+
     //get deal_type from special_deals
     public function getDealTypes($visibility)
     {
@@ -47,6 +58,14 @@ class DealsController extends Controller
 
             // Generate the full URL to the image
             $imagePath = url('storage/special_deals/' . $fileName);
+        }
+
+        if ($request->has('images')) {
+            foreach ($request->images as $image) {
+                $path = $image['file']->getRealPath();
+                $imageUrl = $this->generalService->uploadMedia($path, 'Deals');
+                $product->images()->create(['image_path' => $imageUrl, 'color_id' => $image['color_id']]);
+            }
         }
 
 
