@@ -16,74 +16,8 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
-// class ProductController extends Controller
-// {
-//     //
-//     public function store(Request $request)
-//     {
-//         $request->validate([
-//             'name' => 'required|string|max:255',
-//             'description' => 'required|string',
-//             'price' => 'required|numeric',
-//             'gender' => 'required|in:male,female',
-//             'category' => 'required|string',
-//             // 'color' => 'required|string',
-//             // 'stock' => 'required|integer',
-//             'colors' => 'required|array',
-//             'colors.*' => 'string',
-//             'stock' => 'required|integer',
-//             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',  // Validate image
-//         ]);
-
-//         $imagePath = null;
-//         if ($request->hasFile('image')) {
-//             $imagePath = $request->file('image')->store('products', 'public');
-//             $request->image = $imagePath;
-//         }
-
-//         $product = Product::create($request->all());
-
-//         return response()->json($product, 201);
-//     }
-
-
-//      // Update the specified product in storage
-//      public function update(Request $request, Product $product)
-//      {
-//          $request->validate([
-//             'name' => 'sometimes|string|max:255',
-//             'description' => 'sometimes|string',
-//             'price' => 'sometimes|numeric',
-//             'gender' => 'sometimes|in:male,female',
-//             'category' => 'sometimes|string',
-//             'color' => 'sometimes|string',
-//             'stock' => 'sometimes|integer',
-//          ]);
-
-//         // Handle image upload
-//         if ($request->hasFile('image')) {
-//             // Delete old image if exists
-//             if ($product->image) {
-//                 Storage::disk('public')->delete($product->image);
-//             }
-//             $imagePath = $request->file('image')->store('products', 'public');
-//             $product->image = $imagePath;
-//         }
-
-//          $product->update($request->all());
-
-//          return response()->json($product);
-//      }
-
-//      // Remove the specified product from storage
-//      public function destroy(Product $product)
-//      {
-//          $product->delete();
-
-//          return response()->json(['message' => 'Product deleted successfully']);
-//      }
-// }
 
 
 class ProductController extends Controller
@@ -189,26 +123,35 @@ class ProductController extends Controller
         }
 
         // Save images
-        foreach ($request->images as $image) {
-            // Get the original file extension
-            $fileExtension = $image['file']->getClientOriginalExtension();
+        // foreach ($request->images as $image) {
+        //     // Get the original file extension
+        //     $fileExtension = $image['file']->getClientOriginalExtension();
 
-            // Generate a unique, code-based file name
-            $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
+        //     // Generate a unique, code-based file name
+        //     $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
 
-            // Save the file in the desired directory
-            $path = public_path('storage/products');
-            $image['file']->move($path, $fileName);
+        //     // Save the file in the desired directory
+        //     $path = public_path('storage/products');
+        //     $image['file']->move($path, $fileName);
 
-            // Generate the full URL to the image
-            $imageUrl = url('storage/products/' . $fileName);
+        //     // Generate the full URL to the image
+        //     $imageUrl = url('storage/products/' . $fileName);
 
-            // Store the URL in the database
-            $product->images()->create([
-                'image_path' => $imageUrl,
-                'color_id' => $image['color_id']
-            ]);
+        //     // Store the URL in the database
+        //     $product->images()->create([
+        //         'image_path' => $imageUrl,
+        //         'color_id' => $image['color_id']
+        //     ]);
 
+        // }
+
+
+        if ($request->has('images')) {
+            foreach ($request->images as $image) {
+                $path = $image['file']->getRealPath();
+                $imageUrl = $this->generalService->uploadMedia($path, 'Product');
+                $product->images()->create(['image_path' => $imageUrl, 'color_id' => $image['color_id']]);
+            }
         }
 
         return response()->json(['message' => 'Product created successfully.', 'product' => $product->load('images')], 201);
@@ -290,11 +233,11 @@ class ProductController extends Controller
             $product->attributes()->sync($request->attributes ?? []);
         }
 
-        // Update images
         if ($request->has('images')) {
             foreach ($request->images as $image) {
-                $path = $image['file']->store('products', 'public');
-                $product->images()->create(['image_path' => $path, 'color_id' => $image['color_id']]);
+                $path = $image['file']->getRealPath();
+                $imageUrl = $this->generalService->uploadMedia($path, 'Product');
+                $product->images()->create(['image_path' => $imageUrl, 'color_id' => $image['color_id']]);
             }
         }
 
@@ -344,64 +287,6 @@ class ProductController extends Controller
     }
 
 
-    // public function getAllProducts(Request $request){
-    //     $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
-
-    //     // Apply filters based on the request parameters
-    //     if ($request->has('brand_id') && $request->brand_id) {
-    //         $query->whereHas('brand', function ($query) use ($request) {
-    //             $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
-    //         });
-    //     }
-
-    //     if ($request->has('category_id') && $request->category_id) {
-    //         $query->whereHas('category', function ($query) use ($request) {
-    //             $query->where('categories.id', $request->category_id);  // specify table name 'categories'
-    //         });
-    //     }
-
-    //     if ($request->has('size_id') && $request->size_id) {
-    //         $query->whereHas('attributes', function ($query) use ($request) {
-    //             $query->where('attributes.type', 'size')
-    //                 ->where('attributes.id', $request->size_id);  // specify table name 'attributes'
-    //         });
-    //     }
-
-    //     if ($request->has('color_id') && $request->color_id) {
-    //         $query->whereHas('images.color', function ($query) use ($request) {
-    //             $query->where('attributes.id', $request->color_id);  // specify table name 'attributes'
-    //         });
-    //     }
-
-    //     $products = $query->get();
-
-    //     if ($request->has('returnCurrency') && $request->returnCurrency) {
-    //         $returnCurrency = $request->returnCurrency;
-    //         foreach ($products as $product) {
-    //             $baseCurrency = $product->baseCurrency ?: 'USD';
-    //             $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
-    //         }
-    //     }
-
-    //     // // Apply budget filters
-    //     // if ($request->has('upper_budget') && $request->upper_budget && $request->has('lower_budget') && $request->lower_budget) {
-    //     //     $products = $products->filter(function ($product) use ($request) {
-    //     //         return $product->converted_price <= $request->upper_budget && $product->converted_price >= $request->lower_budget;
-    //     //     });
-    //     // } elseif ($request->has('upper_budget') && $request->upper_budget) {
-    //     //     // Apply upper budget filter only
-    //     //     $products = $products->filter(function ($product) use ($request) {
-    //     //         return $product->converted_price <= $request->upper_budget;
-    //     //     });
-    //     // } elseif ($request->has('lower_budget') && $request->lower_budget) {
-    //     //     // Apply lower budget filter only
-    //     //     $products = $products->filter(function ($product) use ($request) {
-    //     //         return $product->converted_price >= $request->lower_budget;
-    //     //     });
-    //     // }
-
-    //     return response()->json($products);
-    // }
 
     public function getAllProducts(Request $request)
     {
@@ -409,9 +294,16 @@ class ProductController extends Controller
         $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
 
         // Apply filters based on the request parameters
+        if ($request->has('search') && $request->search) {
+            $query->where(function ($query) use ($request) {
+                $query->where('name', 'like', "%{$request->search}%")
+                      ->orWhere('description', 'like', "%{$request->search}%");
+            });
+        }
+
         if ($request->has('brand_id') && $request->brand_id) {
             $query->whereHas('brand', function ($query) use ($request) {
-                $query->where('brands.id', $request->brand_id);  // specify table name 'brands'
+                $query->where('brands.id', $request->brand_id);
             });
         }
 
@@ -511,7 +403,8 @@ class ProductController extends Controller
         $product = Product::find($id);
         $images = ProductImage::where('product_id', $id)->get();
         foreach ($images as $image) {
-            Storage::disk('public')->delete($image->image_path);
+            $publicId = $this->generalService->extractPublicId($image->image_path);
+            Cloudinary::destroy($publicId);
         }
 
         $product->delete();
