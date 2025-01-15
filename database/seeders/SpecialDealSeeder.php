@@ -29,6 +29,8 @@ class SpecialDealSeeder extends Seeder
             ['name' => "Valentine's Day Deal", 'image' => 'https://via.placeholder.com/150?text=Valentine\'s+Day+Deal'],
         ];
 
+        $visibility = ['visible', 'hidden'];
+
         foreach ($deals as $deal) {
             SpecialDeals::updateOrCreate(
                 ['deal_type' => $deal['name']],
@@ -36,6 +38,7 @@ class SpecialDealSeeder extends Seeder
                     'deal_type' => $deal['name'],
                     'slug' => Str::slug($deal['name'], '_'),
                     'image' => $deal['image'],
+                    'visibility' => $visibility[array_rand($visibility)]
                 ]
             );
         }

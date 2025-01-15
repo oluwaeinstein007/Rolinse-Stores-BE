@@ -9,6 +9,7 @@ use App\Models\Product;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class DealsController extends Controller
 {
@@ -24,7 +25,7 @@ class DealsController extends Controller
 
 
     //get deal_type from special_deals
-    public function getDealTypes($visibility)
+    public function getDealTypes($visibility = null)
     {
         //check if  visiblity
 
@@ -40,32 +41,15 @@ class DealsController extends Controller
         $request->validate([
             'deal_type' => 'required|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'visibility' => 'nullable|string',
         ]);
 
         $dealType = $request->deal_type;
-        $imagePath = null;
+        $imageUrl = null;
 
-        // Handle file upload if an image is provided
-        if ($request->hasFile('image')) {
-            // Get the uploaded file
-            $image = $request->file('image');
-            // Get the original file extension
-            $fileExtension = $image->getClientOriginalExtension();
-            // Generate a unique, code-based file name
-            $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
-            $path = public_path('storage/special_deals'); // Correct path for saving
-            $image->move($path, $fileName);
-
-            // Generate the full URL to the image
-            $imagePath = url('storage/special_deals/' . $fileName);
-        }
-
-        if ($request->has('images')) {
-            foreach ($request->images as $image) {
-                $path = $image['file']->getRealPath();
-                $imageUrl = $this->generalService->uploadMedia($path, 'Deals');
-                $product->images()->create(['image_path' => $imageUrl, 'color_id' => $image['color_id']]);
-            }
+        if ($request->has('image')) {
+            $path = $request->image->getRealPath();
+            $imageUrl = $this->generalService->uploadMedia($path, 'Deals');
         }
 
 
@@ -80,7 +64,8 @@ class DealsController extends Controller
             $specialDeal->update([
                 'deal_type' => $dealType,
                 'slug' => Str::slug($dealType, '_'),
-                'image' => $imagePath ?? $specialDeal->image, // Keep old image if no new one is provided
+                'image' => $imageUrl ?? $specialDeal->image, // Keep old image if no new one is provided
+                'visibility' => $request->visibility ?? $specialDeal->visibility
             ]);
 
             return response()->json(['message' => 'Special deal updated successfully.', 'deal' => $specialDeal]);
@@ -92,13 +77,56 @@ class DealsController extends Controller
                 [
                     'deal_type' => $dealType,
                     'slug' => $slug,
-                    'image' => $imagePath,
+                    'image' => $imageUrl,
+                    'visibility' => $request->visibility
                 ]
             );
 
             return response()->json(['message' => 'Special deal created successfully.', 'deal' => $specialDeal]);
         }
     }
+
+
+    // public function createOrUpdateDealType(Request $request, $id = null)
+    // {
+    //     $request->validate([
+    //         'deal_type' => 'required|string',
+    //         'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+    //         'visibility' => 'nullable|string',
+    //     ]);
+
+    //     $imageUrl = null;
+
+    //     if ($request->hasFile('image')) {
+    //         $path = $request->file('image')->getRealPath();
+    //         $imageUrl = $this->generalService->uploadMedia($path, 'Deals');
+    //     }
+
+    //     $data = [
+    //         'deal_type' => $request->deal_type,
+    //         'slug' => Str::slug($request->deal_type, '_'),
+    //         'image' => $imageUrl,
+    //         'visibility' => $request->visibility,
+    //     ];
+
+    //     if ($id) {
+    //         $specialDeal = SpecialDeals::find($id);
+
+    //         if (!$specialDeal) {
+    //             return response()->json(['error' => 'Special deal not found.'], 404);
+    //         }
+
+    //         $specialDeal->update(array_filter($data)); // `array_filter` removes null values, keeping existing data
+    //         return response()->json(['message' => 'Special deal updated successfully.', 'deal' => $specialDeal]);
+    //     }
+
+    //     $specialDeal = SpecialDeals::updateOrCreate(
+    //         ['deal_type' => $request->deal_type],
+    //         $data
+    //     );
+
+    //     return response()->json(['message' => 'Special deal created successfully.', 'deal' => $specialDeal]);
+    // }
 
 
 
@@ -113,10 +141,8 @@ class DealsController extends Controller
 
         // Delete associated image file if it exists
         if ($specialDeal->image) {
-            $imagePath = str_replace(url('storage'), 'public', $specialDeal->image);
-            if (Storage::exists($imagePath)) {
-                Storage::delete($imagePath);
-            }
+            $publicId = $this->generalService->extractPublicId($specialDeal->image);
+            Cloudinary::destroy($publicId);
         }
 
         // Delete the deal type

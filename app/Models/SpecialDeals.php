@@ -11,5 +11,6 @@ class SpecialDeals extends Model
         'deal_type',
         'slug',
         'image',
+        'visibility'
     ];
 }
