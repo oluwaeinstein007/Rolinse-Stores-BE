@@ -9,7 +9,7 @@ use App\Http\Controllers\API\V1\PaymentController;
 use App\Http\Controllers\API\V1\ProductController;
 use App\Http\Controllers\API\V1\UserController;
 use App\Http\Controllers\API\V1\DealsController;
-
+use App\Http\Controllers\API\V1\FinanceController;
 //import admin middleware
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\Optional;
@@ -32,6 +32,12 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/verify-username', [AuthController::class, 'verifyUsername']);
         Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
         Route::post('/verify-refcode', [AuthController::class, 'verifyReferralCode']);
+
+
+
+        Route::prefix('finance')->group(function () {
+            Route::get('/all-currency', [FinanceController::class, 'getAllCurrency'])->name('exchange-rate.all-currency');
+        });
 
     });
 

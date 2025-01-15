@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('deal_type')->nullable();
             $table->string('slug')->unique();
             $table->string('image')->nullable();
+            $table->enum('visibility', ['hidden', 'visible'])->default('visible');
             $table->timestamps();
         });
     }
