@@ -14,7 +14,8 @@ class OrderItem extends Model
         'price_per_unit',
         'total_price',
         'currency',
-        'image'
+        'image',
+        'color'
     ];
 
     public function product()

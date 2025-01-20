@@ -29,14 +29,18 @@ class NotificationService
 
 
     public function storeNotification($user, $type, $subType, $title, $body, $link = null, $actionText = null){
-        $notification = ModelsNotification::create([
-            'user_id' => $user['id'],
-            'type' => $type,
-            'sub_type' => $subType,
-            'title' => $title,
-            'body' => $body,
-            'link' => $link,
-        ]);
+        if($user['id']){
+                $notification = ModelsNotification::create([
+                'user_id' => $user['id'] ?? null,
+                'user_email' => $user['email'],
+                'type' => $type,
+                'sub_type' => $subType,
+                'title' => $title,
+                'body' => $body,
+                'link' => $link,
+            ]);
+        }
+
         //merge actionText
         $notification['actionText'] = $actionText;
 

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\OrderItem;
 use App\Models\AdminPromo;
 use App\Models\ProductImage;
+use App\Models\Attribute;
 use App\Services\ActivityLogger;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
@@ -30,6 +31,11 @@ class OrderController extends Controller
     public function placeOrder(Request $request)
     {
         $user = $request->authUser;
+        $user = [
+            'email' => $user->email ?? $request->email,
+            'full_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $request->full_name,
+            'id' => $user->id ?? null,
+        ];
 
         $products = $request->input('products', []);
         $returnCurrency = $request->input('returnCurrency', 'USD');
@@ -56,9 +62,15 @@ class OrderController extends Controller
             $price = $product->price;
             $totalPrice = $price * $quantity;
 
-            $convertedPrice = $this->generalService->convertMoney(
+            $convertedTotalPrice = $this->generalService->convertMoney(
                 $product->baseCurrency ?: 'USD',
                 $totalPrice,
+                $returnCurrency
+            );
+
+            $convertedPrice = $this->generalService->convertMoney(
+                $product->baseCurrency ?: 'USD',
+                $price,
                 $returnCurrency
             );
 
@@ -69,17 +81,20 @@ class OrderController extends Controller
                     ->first()
                     ->image_path ?? null;
 
+            $color = Attribute::where('id',$productData['color_id'])->first()->value ?? null;
+
 
             $orderItems[] = [
                 'product_id' => $productId,
                 'image' => $image,
+                'color' => $color,
                 'quantity' => $quantity,
-                'price_per_unit' => $price,
-                'total_price' => $convertedPrice,
+                'price_per_unit' => $convertedPrice,
+                'total_price' => $convertedTotalPrice,
                 'currency' => $returnCurrency
             ];
 
-            $grandTotal += $convertedPrice;
+            $grandTotal += $convertedTotalPrice;
         }
 
         if (empty($orderItems)) {
@@ -107,7 +122,7 @@ class OrderController extends Controller
         if($request->has('promo_code')){
             $promo = AdminPromo::where('promo_code', $request->promo_code)->first();
             if($promo){
-                $promo->users()->attach($user->id);
+                $promo->users()->attach($user['id']);
                 $promo->updateMaxUses($promo->id);
             }
         }
@@ -130,9 +145,25 @@ class OrderController extends Controller
             $response['missing_products'] = $missingProducts;
         }
 
-        $full_name = $user->first_name . ' ' . $user->last_name;
-        $this->notificationService->userNotification($user, 'Order', 'Order Placed', 'Order Placed.', 'You have placed an order with ID: ' . $order->order_number, false);
-        ActivityLogger::log('Order', 'Order Placed', 'The order with ID: ' . $order->order_number . ' has been placed by ' . $full_name, $user->id);
+        // $full_name = ($user->first_name . ' ' . $user->last_name) ?? $request->full_name;
+
+        $this->notificationService->userNotification(
+            $user,
+            'Order',
+            'Order Placed',
+            'Order Placed.',
+            'You have placed an order with ID: ' . $order->order_number,
+            false
+        );
+
+        if ($request->authUser) {
+            ActivityLogger::log(
+                'Order',
+                'Order Placed',
+                'The order with ID: ' . $order->order_number . ' has been placed by ' . $user['full_name'],
+                $user['id']
+            );
+        }
 
         // return response()->json($response, 201);
         return $this->success('Order placed successfully', $response, [], 201);
