@@ -185,6 +185,11 @@ class ProductController extends Controller
 
             $baseCurrency = $product->baseCurrency ?: 'USD';
             $price = $product->price;
+
+            if (!empty($product->discount) && $product->discount > 0) {
+                $price = $product->price - ($product->price * ($product->discount / 100));
+            }
+
             $totalPrice = $price * $quantity;
 
             $convertedPrice = $this->generalService->convertMoney($baseCurrency, $totalPrice, $returnCurrency);
