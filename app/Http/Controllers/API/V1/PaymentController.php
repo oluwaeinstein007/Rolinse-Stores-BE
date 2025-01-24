@@ -23,13 +23,15 @@ class PaymentController extends Controller
             str_replace('_', ' ', now()->timestamp . bin2hex(random_bytes(6)))),
             'amount' => $request->amount,
             'user_email' => $user->email ?? $request->email,
+            'order_id' => $request->order_id,
             'payment_gateway' => PaymentGateway::STRIPE->value,
             'type' => TransactionType::ONEOFF->value,
             'status' => TransactionStatus::PENDING->value,
         ]);
         $stripe = new StripeService($paymentTransaction->reference);
         $response = $stripe->pay(amount: $request->amount);
-        return $this->success('Milestone update successfully.', $response);
+        // $response['reference'] = $paymentTransaction->reference;
+        return $this->success('Payment for the order initiated.', $response);
     }
 
     public function confirmPayment(Request $request)

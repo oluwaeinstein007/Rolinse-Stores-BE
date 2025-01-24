@@ -43,7 +43,9 @@ class StripeService
 
                 return [
                     'client_secret' => $paymentIntent->client_secret,
-                    'reference' => $this->transactionReference
+                    'reference' => $this->transactionReference,
+                    'payment_id' => $paymentIntent->id,
+                    'amount' => $amount,
                 ];
             } else {
                 return ['error' => 'Client secret is missing.'];

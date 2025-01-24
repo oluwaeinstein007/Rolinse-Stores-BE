@@ -62,7 +62,7 @@ Route::prefix('v1')->group(callback: function () {
 
         Route::prefix('payment')->group(function () {
             Route::prefix('stripe')->group(function () {
-                Route::get('pay', [PaymentController::class, 'pay']);
+                Route::post('pay', [PaymentController::class, 'pay']);
                 Route::get('confirm', [PaymentController::class, 'confirmPayment']);
                 Route::post('webhook', [PaymentController::class, 'webhook']);
             });

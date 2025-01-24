@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('user_email')->nullable();
             $table->string('reference')->unique();
-            $table->string('payment_id')->unique();
+            $table->string('payment_id')->unique()->nullable();
             $table->string('description')->nullable();
             $table->foreignId('order_id')->nullable()->constrained('orders')->cascadeOnDelete();
             $table->decimal('amount', 10, 2);
