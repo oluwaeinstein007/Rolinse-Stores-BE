@@ -66,6 +66,11 @@ Route::prefix('v1')->group(callback: function () {
                 Route::get('confirm', [PaymentController::class, 'confirmPayment']);
                 Route::post('webhook', [PaymentController::class, 'webhook']);
             });
+
+            Route::prefix('paystack')->group(function () {
+                Route::post('/initiate', [PaymentController::class, 'initiatePayment']);
+                Route::get('/verify', [PaymentController::class, 'verifyPayment']);
+            });
         });
 
         Route::prefix('deals')->group(function () {

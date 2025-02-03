@@ -16,10 +16,11 @@ return new class extends Migration
             $table->string('user_email')->nullable();
             $table->string('reference')->unique();
             $table->string('payment_id')->unique()->nullable();
-            $table->string('description')->nullable();
+            $table->string('transaction_id')->unique()->nullable();
+            $table->string('currency')->nullable();
             $table->foreignId('order_id')->nullable()->constrained('orders')->cascadeOnDelete();
             $table->decimal('amount', 10, 2);
-            $table->enum('payment_method', ['PayPal', 'Stripe', 'Bank Transfer'])->nullable();
+            $table->enum('payment_gateway', ['PayPal', 'Stripe', 'Bank Transfer', 'Paystack'])->nullable();
             $table->enum('type', ['one-off', 'recurring', 'tip', 'refund']);
             $table->enum('status', ['completed', 'rejected', 'cancelled', 'pending', 'in-escrow', 'withdrawn']);
             //deleted_at

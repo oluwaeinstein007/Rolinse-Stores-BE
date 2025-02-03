@@ -19,7 +19,8 @@ class Transaction extends Model
         'amount',
         'payment_type',
         'type',
-        'payment_method',
+        'payment_gateway',
+        'currency',
         'status',
         'reference',
         'description',
@@ -39,6 +40,7 @@ class Transaction extends Model
     {
         static::creating(function ($transaction) {
             $transaction->reference = strtoupper('TR' . now()->timestamp . bin2hex(random_bytes(2)));
+            $transaction->transaction_id = strtoupper('TR' . now()->timestamp . bin2hex(random_bytes(2)));
         });
     }
 
