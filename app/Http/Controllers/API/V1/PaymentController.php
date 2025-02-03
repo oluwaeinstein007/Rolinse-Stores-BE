@@ -150,6 +150,7 @@ class PaymentController extends Controller
                 'json' => [
                     'email' => $request->email,
                     'amount' => $request->amount * 100, // Paystack expects amount in kobo
+                    'currency' => $request->currency ?? 'NGN',
                 ],
             ]);
 
