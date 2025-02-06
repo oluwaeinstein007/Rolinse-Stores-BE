@@ -17,6 +17,8 @@ use App\Services\GeneralService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+//import \Log;
+use Illuminate\Support\Facades\Log;
 
 
 
@@ -295,8 +297,19 @@ class ProductController extends Controller
 
     public function getAllProducts(Request $request)
     {
+        // $validatedData = $request->validate([
+        //     'lower_budget' => ['sometimes', 'required_with:upper_budget', 'numeric'],
+        //     'upper_budget' => ['sometimes', 'required_with:lower_budget', 'numeric']
+        // ]);
+
+        // $validatedData = $request->validate([
+        //     'lower_budget' => 'sometimes|numeric|upper_budget>=lower_budget',
+        //     'upper_budget' => 'sometimes|numeric|lower_budget<=upper_budget'
+        // ]);
+
         // Start the query with eager loading
         $query = Product::with(['category', 'brand', 'images.color', 'attributes']);
+        $returnCurrency = $request->returnCurrency;
 
         // Apply filters based on the request parameters
         if ($request->has('search') && $request->search) {
@@ -331,6 +344,19 @@ class ProductController extends Controller
             });
         }
 
+        // $getMaxMinPrice = Product::selectRaw('MIN(price) AS min_price, MAX(price) AS max_price')->first();
+        if ($request->has('lower_budget') && $request->lower_budget && $request->has('upper_budget') && $request->upper_budget) {
+            $lowerBudgetUSD = $this->generalService->convertMoney($returnCurrency, $request->lower_budget, 'USD');
+            $upperBudgetUSD = $this->generalService->convertMoney($returnCurrency, $request->upper_budget, 'USD');
+            $query->whereBetween('price', [$lowerBudgetUSD, $upperBudgetUSD]);
+        } elseif ($request->has('lower_budget') && $request->lower_budget) {
+            $lowerBudgetUSD = $this->generalService->convertMoney($returnCurrency, $request->lower_budget, 'USD');
+            $query->where('price', '>=', $lowerBudgetUSD);
+        } elseif ($request->has('upper_budget') && $request->upper_budget) {
+            $upperBudgetUSD = $this->generalService->convertMoney($returnCurrency, $request->upper_budget, 'USD');
+            $query->where('price', '<=', $upperBudgetUSD);
+        }
+
         // Apply pagination: get page and limit from the request or set defaults
         $perPage = $request->has('perPage') ? (int)$request->perPage : 30; // Default 15 products per page
         $page = $request->has('page') ? (int)$request->page : 1; // Default to the first page
@@ -341,7 +367,6 @@ class ProductController extends Controller
 
         // If currency conversion is needed, apply the conversion
         if ($request->has('returnCurrency') && $request->returnCurrency) {
-            $returnCurrency = $request->returnCurrency;
             foreach ($products as $product) {
                 $baseCurrency = $product->baseCurrency ?: 'USD';
                 $product->price = $this->generalService->convertMoney($baseCurrency, $product->price, $returnCurrency);
