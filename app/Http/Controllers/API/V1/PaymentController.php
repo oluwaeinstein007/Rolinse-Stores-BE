@@ -208,6 +208,12 @@ class PaymentController extends Controller
 
             $responseData = json_decode($response->getBody(), true);
 
+            //get the transaction from the database
+            $transaction = Transaction::where('reference', $request->reference)->first();
+            //update the transaction status
+            $transaction->status = $responseData['data']['status'] === 'success' ? TransactionStatus::COMPLETED->value : TransactionStatus::REJECTED->value;
+            $transaction->save();
+
             if ($responseData['status'] === true && $responseData['data']['status'] === 'success') {
                 //handle save to transaction table
 
