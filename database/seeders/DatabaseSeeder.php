@@ -16,18 +16,18 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         $this->call([
-            // UserRoleSeeder::class,
-            // UserSeeder::class,
-            // // CountrySeeder::class,
-            // CategorySeeder::class,
-            // BrandSeeder::class,
-            // AttributeSeeder::class,
-            // SpecialDealSeeder::class,
-            ProductAttributeSeeder::class,
-            // ProductSeeder::class,
-            // BestSellerSeeder::class,
+            UserRoleSeeder::class,
+            UserSeeder::class,
+            // CountrySeeder::class,
+            CategorySeeder::class,
+            BrandSeeder::class,
+            AttributeSeeder::class,
+            SpecialDealSeeder::class,
+            // ProductAttributeSeeder::class,
+            ProductSeeder::class,
+            BestSellerSeeder::class,
 
-            // OrderSeeder::class,
+            OrderSeeder::class,
         ]);
 
         // User::factory()->create([
