@@ -183,6 +183,7 @@ class PaymentController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to initiate payment. Please try again.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
