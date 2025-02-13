@@ -20,8 +20,10 @@ class PaymentController extends Controller
 
     public function __construct()
     {
-        $this->paystackSecretKey = env('PAYSTACK_SECRET_KEY');
-        $this->paystackPaymentUrl = env('PAYSTACK_PAYMENT_URL');
+        // $this->paystackSecretKey = env('PAYSTACK_SECRET_KEY');
+        // $this->paystackPaymentUrl = env('PAYSTACK_PAYMENT_URL');
+        $this->paystackSecretKey = config('services.paystack.secret_key');
+        $this->paystackPaymentUrl = config('services.paystack.payment_url');
     }
 
 
