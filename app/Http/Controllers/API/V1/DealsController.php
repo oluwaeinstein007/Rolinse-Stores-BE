@@ -243,4 +243,98 @@ class DealsController extends Controller
     }
 
 
+    //get all images in Category, Brand, Product, SpecialDeals, create on cloudinary, then return a json list of all images, with their public_id in array ie $brand images, $category images, $product images, $special_deals images
+    // public function handleImages(){
+    //     $brands = asset('storage/Brands');
+    //     $categories = asset('storage/Categories');
+    //     $products = asset('storage/products');
+
+
+
+    //     $images = [];
+
+    //     //list the images in each of those folders ie Brands, Categories, Products separately
+    //     $brandImages = Storage::files('public/storage/Brands');
+    //     $categoryImages = Storage::files('public/Categories');
+    //     $productImages = Storage::files('public/products');
+
+    //     return $brandImages;
+
+    //     //create the images on cloudinary
+    //     foreach ($brandImages as $brandImage) {
+    //         $publicId = $this->generalService->extractPublicId($brandImage);
+    //         $image = Cloudinary::upload($brandImage, ['public_id' => $publicId]);
+    //         $images['brands'][] = $image;
+    //     }
+
+    //     foreach ($categoryImages as $categoryImage) {
+    //         $publicId = $this->generalService->extractPublicId($categoryImage);
+    //         $image = Cloudinary::upload($categoryImage, ['public_id' => $publicId]);
+    //         $images['categories'][] = $image;
+    //     }
+
+    //     foreach ($productImages as $productImage) {
+    //         $publicId = $this->generalService->extractPublicId($productImage);
+    //         $image = Cloudinary::upload($productImage, ['public_id' => $publicId]);
+    //         $images['products'][] = $image;
+    //     }
+
+
+    //     return response()->json($images);
+    // }
+    public function handleImages(){
+        // Define the paths for the images
+        $brandsPath = 'Brands';
+        $categoriesPath = 'Categories';
+        $productsPath = 'products';
+
+        // Initialize the images array
+        $images = [];
+
+        // List the images in each of those folders (Brands, Categories, Products)
+        $brandImages = Storage::files("public/{$brandsPath}");
+        $categoryImages = Storage::files("public/{$categoriesPath}");
+        $productImages = Storage::files("public/{$productsPath}");
+
+        // Upload brand images to Cloudinary
+        foreach ($brandImages as $brandImage) {
+            // Get the full path to the file
+            $fullPath = storage_path('app/' . $brandImage);
+
+            // Upload the image to Cloudinary using the generalService
+            $imageUrl = $this->generalService->uploadMedia($fullPath, 'Brand');
+
+            // Add the Cloudinary URL to the images array
+            $images['brands'][] = $imageUrl;
+        }
+
+        // Upload category images to Cloudinary
+        foreach ($categoryImages as $categoryImage) {
+            // Get the full path to the file
+            $fullPath = storage_path('app/' . $categoryImage);
+
+            // Upload the image to Cloudinary using the generalService
+            $imageUrl = $this->generalService->uploadMedia($fullPath, 'Category');
+
+            // Add the Cloudinary URL to the images array
+            $images['categories'][] = $imageUrl;
+        }
+
+        // Upload product images to Cloudinary
+        foreach ($productImages as $productImage) {
+            // Get the full path to the file
+            $fullPath = storage_path('app/' . $productImage);
+
+            // Upload the image to Cloudinary using the generalService
+            $imageUrl = $this->generalService->uploadMedia($fullPath, 'Product');
+
+            // Add the Cloudinary URL to the images array
+            $images['products'][] = $imageUrl;
+        }
+
+        // Return the images array
+        return $images;
+    }
+
+
 }

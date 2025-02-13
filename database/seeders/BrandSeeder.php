@@ -11,16 +11,16 @@ class BrandSeeder extends Seeder
     public function run()
     {
         $brands = [
-            ['name' => 'Nike', 'image' => asset('storage/Brand/nike.jpg')],
-            ['name' => 'Adidas', 'image' => asset('storage/Brand/addidas.jpg')],
-            ['name' => 'Gucci', 'image' => asset('storage/Brand/Gucci.jpg')],
-            ['name' => 'Zara', 'image' => asset('storage/Brand/zara.jpg')],
-            ['name' => 'EA7', 'image' => asset('storage/Brand/Ea7.jpg')],
-            ['name' => 'The North Face', 'image' => asset('storage/Brand/north_face.jpg')],
-            ['name' => 'New Era', 'image' => asset('storage/Brand/new_era.jpg')],
-            ['name' => 'BOSS', 'image' => asset('storage/Brand/Boss.jpg')],
-            ['name' => 'Lacoste', 'image' => asset('storage/Brand/lacoste.jpg')],
-            ['name' => 'Under Armour', 'image' => asset('storage/Brand/nike.jpg')],
+            ['name' => 'Nike', 'image' => asset('images/Brand/nike.jpg')],
+            ['name' => 'Adidas', 'image' => asset('images/Brand/addidas.jpg')],
+            ['name' => 'Gucci', 'image' => asset('images/Brand/Gucci.jpg')],
+            ['name' => 'Zara', 'image' => asset('images/Brand/zara.jpg')],
+            ['name' => 'EA7', 'image' => asset('images/Brand/Ea7.jpg')],
+            ['name' => 'The North Face', 'image' => asset('images/Brand/north_face.jpg')],
+            ['name' => 'New Era', 'image' => asset('images/Brand/new_era.jpg')],
+            ['name' => 'BOSS', 'image' => asset('images/Brand/Boss.jpg')],
+            ['name' => 'Lacoste', 'image' => asset('images/Brand/lacoste.jpg')],
+            ['name' => 'Under Armour', 'image' => asset('images/Brand/nike.jpg')],
             // ['name' => 'Under Armour', 'image' => 'https://via.placeholder.com/150?text=Under+Armour'],
         ];
 

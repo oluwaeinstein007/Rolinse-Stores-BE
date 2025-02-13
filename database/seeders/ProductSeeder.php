@@ -35,7 +35,7 @@ class ProductSeeder extends Seeder
             $product->attributes()->sync($attributes->random(rand(3, 6))->pluck('id'));
 
             //add images to the product
-            $placeholderImages = array_diff(scandir(public_path('storage/products')), ['.', '..']);
+            $placeholderImages = array_diff(scandir(public_path('images/products')), ['.', '..']);
 
             if (empty($placeholderImages)) {
                 throw new \Exception("No placeholder images found in the 'products' directory.");
@@ -44,7 +44,7 @@ class ProductSeeder extends Seeder
             for ($j = 1; $j <= rand(2, 5); $j++) {
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => url('storage/products/' . $placeholderImages[array_rand($placeholderImages)]),
+                    'image_path' => url('images/products/' . $placeholderImages[array_rand($placeholderImages)]),
                     'color_id' => $attributes->where('type', 'color')->random()->id,
                 ]);
             }

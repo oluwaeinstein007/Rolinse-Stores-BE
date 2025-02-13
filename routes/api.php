@@ -52,6 +52,7 @@ Route::prefix('v1')->group(callback: function () {
             Route::get('/filter', [ProductController::class, 'index']);
             Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
             Route::get('/best-seller', [ProductController::class, 'bestSeller']);
+            Route::get('handleImages', [DealsController::class, 'handleImages']);
         });
 
         Route::prefix('orders')->group(function () {
