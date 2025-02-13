@@ -4,6 +4,8 @@ namespace App\Enums;
 
 enum PaymentGateway: string
 {
-    case STRIPE = 'stripe';
-    case PAYSTACK = 'paystack';
+    case PAYPAL = 'PayPal';
+    case STRIPE = 'Stripe';
+    case BANK_TRANSFER = 'Bank Transfer';
+    case PAYSTACK = 'Paystack';
 }
