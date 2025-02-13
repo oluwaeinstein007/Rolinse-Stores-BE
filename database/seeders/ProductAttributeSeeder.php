@@ -21,7 +21,7 @@ class ProductAttributeSeeder extends Seeder
 
 
         $sourceDir = public_path('storage/raw_products');
-        $destinationDir = public_path('storage/products');
+        $destinationDir = public_path('images/products');
 
 
         // Ensure the destination directory exists
@@ -32,6 +32,34 @@ class ProductAttributeSeeder extends Seeder
         // Get all files in the source directory
         $files = array_diff(scandir($sourceDir), ['.', '..']);
 
+        // foreach ($files as $file) {
+        //     $sourcePath = $sourceDir . '/' . $file;
+
+        //     // Skip directories
+        //     if (is_dir($sourcePath)) {
+        //         continue;
+        //     }
+
+        //     // Extract file extension and validate it
+        //     $extension = pathinfo($file, PATHINFO_EXTENSION);
+        //     $validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'jfif']; // Add other valid extensions as needed
+        //     if (!in_array(strtolower($extension), $validExtensions)) {
+        //         continue;
+        //     }
+
+        //     // Generate a shorter name (slugified) while keeping the original extension
+        //     $newName = Str::slug(pathinfo($file, PATHINFO_FILENAME), '_') . '.' . strtolower($extension);
+
+        //     // Destination path
+        //     $destinationPath = $destinationDir . '/' . $newName;
+
+        //     // Copy the file to the new directory with the shortened name
+        //     if (copy($sourcePath, $destinationPath)) {
+        //         echo "Processed: {$file} -> {$newName}" . PHP_EOL;
+        //     } else {
+        //         echo "Failed to process: {$file}" . PHP_EOL;
+        //     }
+        // }
         foreach ($files as $file) {
             $sourcePath = $sourceDir . '/' . $file;
 
@@ -48,7 +76,20 @@ class ProductAttributeSeeder extends Seeder
             }
 
             // Generate a shorter name (slugified) while keeping the original extension
-            $newName = Str::slug(pathinfo($file, PATHINFO_FILENAME), '_') . '.' . strtolower($extension);
+            $filename = pathinfo($file, PATHINFO_FILENAME);
+            $slugifiedName = Str::slug($filename, '_');
+
+            // Truncate the name to a maximum length (e.g., 20 characters)
+            $maxLength = 20; // Adjust this value as needed
+            $truncatedName = substr($slugifiedName, 0, $maxLength);
+
+            // Ensure the name is unique (optional, to avoid overwriting files)
+            $newName = $truncatedName . '.' . strtolower($extension);
+            $counter = 1;
+            while (file_exists($destinationDir . '/' . $newName)) {
+                $newName = $truncatedName . '_' . $counter . '.' . strtolower($extension);
+                $counter++;
+            }
 
             // Destination path
             $destinationPath = $destinationDir . '/' . $newName;
