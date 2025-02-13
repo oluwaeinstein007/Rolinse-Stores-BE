@@ -34,8 +34,7 @@ class CategorySeeder extends Seeder
                 [
                     'name' => $category['name'],
                     'slug' => Str::slug($category['name'], '-'),
-                    // 'image' => $category['image'],
-                    'image' => Storage::url($category['image']),
+                    'image' => $category['image'],
                 ]
             );
         }
