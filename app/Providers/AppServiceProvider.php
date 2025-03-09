@@ -6,6 +6,7 @@ use App\Services\GeneralService;
 use App\Services\NotificationService;
 use App\Services\ActivityLogger;
 use App\Services\StripeService;
+use App\Services\DeliveryService;
 
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(StripeService::class, function ($app) {
             return new StripeService();
+        });
+
+        $this->app->bind(DeliveryService::class, function ($app) {
+            return new DeliveryService();
         });
     }
 

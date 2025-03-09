@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 //import \Log;
 use Illuminate\Support\Facades\Log;
+use App\Services\DeliveryService;
+use Exception;
 
 
 
@@ -166,11 +168,28 @@ class ProductController extends Controller
     }
 
 
+    protected function getDeliveryCost($deliveryDetails)
+    {
+        try {
+            $fezService = app(DeliveryService::class);
+            return $fezService->calculateDeliveryCost([
+                'pickUpState' => $deliveryDetails['pickUpState'] ?? "Lagos",
+                'state' => $deliveryDetails['state'],
+                'weight' => $deliveryDetails['weight'] ?? 1,
+            ]);
+        } catch (Exception $e) {
+            // \Log::error('Delivery cost calculation failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public function confirmPrice(Request $request)
     {
         $products = $request->input('products', []);
         $returnCurrency = $request->input('returnCurrency', 'USD');
+        $deliveryDetails = $request->input('delivery_details');
         $results = [];
+        $totalValue = 0;
 
         foreach ($products as $productData) {
             $productId = $productData['product_id'];
@@ -193,8 +212,8 @@ class ProductController extends Controller
             }
 
             $totalPrice = $price * $quantity;
-
             $convertedPrice = $this->generalService->convertMoney($baseCurrency, $totalPrice, $returnCurrency);
+            $totalValue += $convertedPrice;
 
             $results[] = [
                 'product_id' => $productId,
@@ -204,11 +223,27 @@ class ProductController extends Controller
             ];
         }
 
+        // Calculate delivery cost if delivery details are provided
+        $deliveryCost = 0;
+        if (!empty($deliveryDetails)) {
+            // $deliveryDetails['value_of_item'] = (string)$totalValue; // Convert to string as required by Fez API
+            $deliveryCostResponse = $this->getDeliveryCost($deliveryDetails);
+// return $deliveryCostResponse;
+            if ($deliveryCostResponse && isset($deliveryCostResponse['Cost'])) {
+                $deliveryCost = $this->generalService->convertMoney(
+                    'NGN', // Fez returns cost in Naira
+                    $deliveryCostResponse['Cost']['cost'],
+                    $returnCurrency
+                );
+            }
+        }
+
         $data = [
-            // 'total' => array_sum(array_column($results, 'total_price')),
-            'total_price' => number_format(array_sum(array_column($results, 'amount')), 2),
-            'currency' => $returnCurrency,
-            'products' => $results
+            'products' => $results,
+            'subtotal' => number_format($totalValue, 2),
+            'delivery_cost' => number_format($deliveryCost, 2),
+            'total_price' => number_format($totalValue + $deliveryCost, 2),
+            'currency' => $returnCurrency
         ];
 
         return $this->success('Prices converted successfully', $data, [], 200);

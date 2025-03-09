@@ -10,6 +10,7 @@ use App\Http\Controllers\API\V1\ProductController;
 use App\Http\Controllers\API\V1\UserController;
 use App\Http\Controllers\API\V1\DealsController;
 use App\Http\Controllers\API\V1\FinanceController;
+use App\Http\Controllers\DeliveryController;
 //import admin middleware
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\Optional;
@@ -194,6 +195,15 @@ Route::prefix('v1')->group(callback: function () {
                 Route::delete('/{id}', [AdminController::class, 'deleteAdminPromo'])->name('admin-promo.delete');
             });
         });
+    });
+
+    // Fez Delivery Routes
+    Route::prefix('delivery')->group(function () {
+        Route::post('/authenticate', [DeliveryController::class, 'authenticate']);
+        Route::post('/calculate-fee', [DeliveryController::class, 'calculateDeliveryFee']);
+        Route::post('/create-order', [DeliveryController::class, 'createDeliveryOrder']);
+        Route::get('/order-status/{orderId}', [DeliveryController::class, 'getOrderStatus']);
+        Route::post('/calculate-cost', [DeliveryController::class, 'calculateDeliveryCost']);
     });
 
 });
