@@ -204,6 +204,16 @@ Route::prefix('v1')->group(callback: function () {
         Route::post('/create-order', [DeliveryController::class, 'createDeliveryOrder']);
         Route::get('/order-status/{orderId}', [DeliveryController::class, 'getOrderStatus']);
         Route::post('/calculate-cost', [DeliveryController::class, 'calculateDeliveryCost']);
+        Route::get('/order/{order_id}', [DeliveryController::class, 'getDeliveryOrder']);
+        Route::post('/search', [DeliveryController::class, 'searchOrders']);
+        Route::get('/track/{orderNumber}', [DeliveryController::class, 'trackOrder']);
+        Route::put('/update-order', [DeliveryController::class, 'updateDeliveryOrder']);
+        Route::post('/calculate-time', [DeliveryController::class, 'calculateDeliveryTime']);
+        Route::get('/export-locations', [DeliveryController::class, 'getExportLocations']);
+        Route::post('/export-cost', [DeliveryController::class, 'calculateExportCost']);
+        Route::post('/create-export-order', [DeliveryController::class, 'createExportOrder']);
+        Route::post('/webhook', [DeliveryController::class, 'handleWebhook'])
+            ->middleware('verify.webhook');
     });
 
 });

@@ -188,4 +188,305 @@ class DeliveryService
             throw new Exception('Failed to calculate delivery cost: ' . $e->getMessage());
         }
     }
+
+    public function getDeliveryOrder($orderId)
+    {
+        try {
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->get($this->baseUrl . '/order/' . $orderId);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to get delivery order: ' . $e->getMessage());
+        }
+    }
+
+    public function searchOrders($data)
+    {
+        try {
+            $payload = [
+                'startDate' => $data['start_date'],
+                'endDate' => $data['end_date'],
+                'page' => $data['page']
+            ];
+
+            // Add optional parameters if they exist
+            if (isset($data['order_no'])) {
+                $payload['orderNo'] = $data['order_no'];
+            }
+            if (isset($data['recipient_name'])) {
+                $payload['recipientName'] = $data['recipient_name'];
+            }
+            if (isset($data['recipient_phone'])) {
+                $payload['recipientPhone'] = $data['recipient_phone'];
+            }
+            if (isset($data['order_status'])) {
+                $payload['orderStatus'] = $data['order_status'];
+            }
+            if (isset($data['org_rep'])) {
+                $payload['OrgRep'] = $data['org_rep'];
+            }
+
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->post($this->baseUrl . '/orders/search', $payload);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to search orders: ' . $e->getMessage());
+        }
+    }
+
+    public function trackOrder($orderNumber)
+    {
+        try {
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->get($this->baseUrl . '/order/track/' . $orderNumber);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to track order: ' . $e->getMessage());
+        }
+    }
+
+    public function updateDeliveryOrder($orders)
+    {
+        try {
+            // Format the orders array to match Fez API requirements
+            $payload = array_map(function($order) {
+                return [
+                    'orderNo' => $order['order_no'],
+                    'recipientAddress' => $order['recipient_address'],
+                    'recipientState' => $order['recipient_state'],
+                    'recipientName' => $order['recipient_name'],
+                    'recipientPhone' => $order['recipient_phone']
+                ];
+            }, $orders);
+
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->put($this->baseUrl . '/order', $payload);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to update delivery order: ' . $e->getMessage());
+        }
+    }
+
+    public function calculateDeliveryTime($data)
+    {
+        try {
+            $payload = [
+                'delivery_type' => $data['delivery_type']
+            ];
+
+            // Add optional parameters for local delivery
+            if ($data['delivery_type'] === 'local') {
+                $payload['pick_up_state'] = $data['pick_up_state'];
+                $payload['drop_off_state'] = $data['drop_off_state'];
+            }
+
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->post($this->baseUrl . '/delivery-time-estimate', $payload);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to calculate delivery time: ' . $e->getMessage());
+        }
+    }
+
+    public function getExportLocations()
+    {
+        try {
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->get($this->baseUrl . '/export-locations');
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to get export locations: ' . $e->getMessage());
+        }
+    }
+
+    public function calculateExportCost($data)
+    {
+        try {
+            $payload = [
+                'destinationState' => $data['destinationState'],
+                'weightId' => $data['weight'],
+                'exportLocationId' => $data['exportLocationId']
+            ];
+
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->post($this->baseUrl . '/export-delivery-cost', $payload);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to calculate export cost: ' . $e->getMessage());
+        }
+    }
+
+    public function createExportOrder($orders)
+    {
+        try {
+            // Format the orders array to match Fez API requirements
+            $payload = array_map(function($order) {
+                $formattedOrder = [
+                    'recipientAddress' => $order['recipient_address'],
+                    'recipientName' => $order['recipient_name'],
+                    'recipientPhone' => $order['recipient_phone'],
+                    'uniqueID' => $order['unique_id'],
+                    'BatchID' => $order['batch_id'],
+                    'valueOfItem' => $order['value_of_item'],
+                    'weight' => $order['weight'],
+                    'exportLocationId' => $order['export_location_id']
+                ];
+
+                // Add optional fields if they exist
+                if (isset($order['cust_token'])) {
+                    $formattedOrder['CustToken'] = $order['cust_token'];
+                }
+                if (isset($order['item_description'])) {
+                    $formattedOrder['itemDescription'] = $order['item_description'];
+                }
+                if (isset($order['additional_details'])) {
+                    $formattedOrder['additionalDetails'] = $order['additional_details'];
+                }
+
+                // Add third party sender details if specified
+                if (isset($order['third_party']) && $order['third_party']) {
+                    $formattedOrder['thirdparty'] = 'true';
+                    $formattedOrder['senderName'] = $order['sender_name'];
+                    $formattedOrder['senderAddress'] = $order['sender_address'];
+                    $formattedOrder['senderPhone'] = $order['sender_phone'];
+                }
+
+                return $formattedOrder;
+            }, $orders);
+
+            $bearerToken = Cache::get('fez_bearer_token');
+            $secretKey = Cache::get('fez_secret_key');
+
+            if (!$bearerToken || !$secretKey) {
+                $this->authenticate();
+                $bearerToken = Cache::get('fez_bearer_token');
+                $secretKey = Cache::get('fez_secret_key');
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $bearerToken,
+                'secret-key' => $secretKey
+            ])->post($this->baseUrl . '/orders/export', $payload);
+
+            if (!$response->successful()) {
+                throw new Exception($response->body());
+            }
+
+            return $response->json();
+        } catch (Exception $e) {
+            throw new Exception('Failed to create export order: ' . $e->getMessage());
+        }
+    }
 }
