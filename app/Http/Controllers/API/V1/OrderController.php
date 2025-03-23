@@ -231,6 +231,36 @@ class OrderController extends Controller
     }
 
 
+    //admin get all orders, such that it get all or you can search by order id or user email
+    public function getAllOrders(Request $request)
+    {
+        $orders = Order::with(['items.product', 'items.product.category', 'items.product.brand'])
+            ->when($request->has('order_number'), function ($query) use ($request) {
+                return $query->where('order_number', $request->order_number);
+            })
+            ->when($request->has('user_email'), function ($query) use ($request) {
+                return $query->where('user_email', $request->user_email);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
+
+        return $this->success('Orders retrieved successfully', $orders, [], 200);
+    }
+
+
+    //update order status
+    public function updateOrderStatus(Request $request, $orderId)
+    {
+        $order = Order::find($orderId);
+        if (!$order) {
+            return $this->failure('Order not found', [], 404);
+        }
+
+        $order->status = $request->status;
+        $order->save();
+
+        return $this->success('Order status updated successfully', $order, [], 200);
+    }
 
 
 }

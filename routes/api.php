@@ -10,7 +10,7 @@ use App\Http\Controllers\API\V1\ProductController;
 use App\Http\Controllers\API\V1\UserController;
 use App\Http\Controllers\API\V1\DealsController;
 use App\Http\Controllers\API\V1\FinanceController;
-use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\API\V1\DeliveryController;
 //import admin middleware
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\Optional;
@@ -106,22 +106,6 @@ Route::prefix('v1')->group(callback: function () {
 
             Route::get('/check-discount-promo', [UserController::class, 'checkDiscountCode'])->name('user.check-discount-promo');
 
-            Route::get('/levels/{id?}', [UserController::class, 'getLevels']);
-            Route::get('/communities/{id?}', [AdminController::class, 'getCommunity']);
-
-            // Route::post('withdrawal/request', [WithdrawalController::class, 'generateWithdrawalToken']);
-            // Route::post('withdrawal/verify', [WithdrawalController::class, 'verifyWithdrawalToken']);
-            // Route::post('withdrawal/update', [WithdrawalController::class, 'updateWithdrawalStatus']);
-
-            Route::prefix('bank')->group(function () {
-                Route::post('/create', [UserController::class, 'createBankDetails']);
-                Route::get('/show/{id}', [UserController::class, 'showBankDetails']);
-                Route::put('/update/{id}', [UserController::class, 'updateBankDetails']);
-                Route::delete('/delete/{id}', [UserController::class, 'deleteBankDetails']);
-                Route::get('/bank-list', [PaymentController::class, 'bankList']);
-                Route::post('/verify-account-name', [PaymentController::class, 'accountName']);
-            });
-
 
             Route::prefix('payment')->group(function () {
                 Route::get('/get-receiver/{levelId}', [PaymentController::class, 'getReceiverAcct']);
@@ -174,6 +158,11 @@ Route::prefix('v1')->group(callback: function () {
 
             Route::prefix('orders')->group(function () {
                 Route::get('/distribution', [OrderController::class, 'getOrderDistribution']);
+                Route::get('/list', [OrderController::class, 'getAllOrders']);
+                //updateOrderStatus
+                Route::put('/update-status/{orderId}', [OrderController::class, 'updateOrderStatus']);
+                //get all orders
+
             });
 
             Route::prefix('customer')->group(function () {

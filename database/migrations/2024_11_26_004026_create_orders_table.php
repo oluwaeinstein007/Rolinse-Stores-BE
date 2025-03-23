@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('user_email');
             $table->string('order_number')->unique();
-            $table->enum('status', ['pending', 'completed', 'cancelled'])->default('pending');
+            $table->enum('status', ['pending', 'completed', 'cancelled', 'failed'])->default('pending');
             $table->decimal('grand_total', 10, 2);
             $table->integer('item_count');
             $table->timestamps();

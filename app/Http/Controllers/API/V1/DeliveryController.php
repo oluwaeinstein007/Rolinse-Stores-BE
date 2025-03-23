@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\API\V1;
 
+use App\Http\Controllers\Controller;
 use App\Services\DeliveryService;
 use Illuminate\Http\Request;
 use Exception;
@@ -9,6 +10,7 @@ use App\Models\Order;
 use Illuminate\Support\Facades\Log;
 use App\Services\ActivityLogger;
 use App\Services\NotificationService;
+
 
 class DeliveryController extends Controller
 {
@@ -39,37 +41,6 @@ class DeliveryController extends Controller
         }
     }
 
-    public function calculateDeliveryFee(Request $request)
-    {
-        try {
-            $request->validate([
-                'pickup_location' => 'required|array',
-                'pickup_location.latitude' => 'required|numeric',
-                'pickup_location.longitude' => 'required|numeric',
-                'delivery_location' => 'required|array',
-                'delivery_location.latitude' => 'required|numeric',
-                'delivery_location.longitude' => 'required|numeric',
-                'vehicle_type' => 'required|string'
-            ]);
-
-            // Will implement this method in DeliveryService
-            $result = $this->deliveryService->calculateDeliveryFee(
-                $request->pickup_location,
-                $request->delivery_location,
-                $request->vehicle_type
-            );
-
-            return response()->json([
-                'status' => 'success',
-                'data' => $result
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
 
     public function createDeliveryOrder(Request $request)
     {
