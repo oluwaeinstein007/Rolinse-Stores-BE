@@ -35,6 +35,7 @@ class OrderSeeder extends Seeder
                 $totalPrice = $quantity * $pricePerUnit;
 
                 $grandTotal += $totalPrice;
+
                 $itemCount += $quantity;
             }
 
@@ -44,6 +45,8 @@ class OrderSeeder extends Seeder
                 'order_number' => $orderNumber,
                 'status' => $status,
                 'grand_total' => $grandTotal,
+                'shipping_cost' => 0.00,
+                'grand_total_ngn' => $grandTotal * 500, // Assuming a conversion rate of 500 NGN to 1 USD
                 'item_count' => $itemCount,
                 'created_at' => now(),
                 'updated_at' => now(),

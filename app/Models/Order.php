@@ -12,6 +12,8 @@ class Order extends Model
         'order_number',
         'status',
         'grand_total',
+        'shipping_cost',
+        'grand_total_ngn',
         'item_count',
     ];
 

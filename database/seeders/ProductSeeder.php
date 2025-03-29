@@ -28,6 +28,7 @@ class ProductSeeder extends Seeder
                 'brand_id' => $brands->random()->id,
                 'description' => $faker->paragraph,
                 'material' => $faker->randomElement(['Cotton', 'Polyester', 'Leather', 'Silk']),
+                'weight' => $faker->randomFloat(2, 0.1, 0.5),
                 'price' => $faker->randomFloat(2, 10, 500),
             ]);
 

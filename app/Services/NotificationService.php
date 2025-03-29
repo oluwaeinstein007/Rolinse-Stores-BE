@@ -58,7 +58,7 @@ class NotificationService
             'intro' => $notification['body'],
             'actionText' => $notification['actionText'] ?? 'Notification Action',
             'actionUrl' => $notification['link'],
-            'outro' => 'Thank you for choosing Maldorini!'
+            'outro' => 'Thank you for choosing Rolinse!'
         ];
 
         Notification::route('mail', $mailDetails['recipientEmail'])
@@ -76,7 +76,7 @@ class NotificationService
             // 'intro' => $notification['body'],
             // 'actionText' => $notification['actionText'] ?? 'Notification Action',
             // 'actionUrl' => $notification['link'],
-            'outro' => 'Thank you for choosing Maldorini!'
+            'outro' => 'Thank you for choosing Rolinse!'
         ];
 
         Notification::route('mail', $mailDetails['recipientEmail'])

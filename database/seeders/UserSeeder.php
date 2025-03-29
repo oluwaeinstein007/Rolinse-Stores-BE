@@ -21,7 +21,37 @@ class UserSeeder extends Seeder
                 'first_name' => 'John',
                 'last_name' => 'Doe',
                 'gender' => 'male',
-                'date_of_birth' => '1990-01-01',
+                'birthdate' => '1990-01-01',
+                'email' => 'hello@rolinse.com',
+                'user_role_id' => 1,  // Admin
+                'phone_number' => '08012345678',
+                'country' => 'Nigeria',
+                'status' => 'active',
+                'password' => Hash::make('Rolinse@2025'),
+                'created_at' => now(),
+                'updated_at' => now(),
+                'email_verified_at' => now()
+            ],
+            [
+                'first_name' => 'John',
+                'last_name' => 'Doe',
+                'gender' => 'male',
+                'birthdate' => '1990-01-01',
+                'email' => 'admin@rolinse.com',
+                'user_role_id' => 1,  // Admin
+                'phone_number' => '08012345678',
+                'country' => 'Nigeria',
+                'status' => 'active',
+                'password' => Hash::make('Rolinse@2025'),
+                'created_at' => now(),
+                'updated_at' => now(),
+                'email_verified_at' => now()
+            ],
+            [
+                'first_name' => 'John',
+                'last_name' => 'Doe',
+                'gender' => 'male',
+                'birthdate' => '1990-01-01',
                 'email' => 'admin@example.com',
                 'user_role_id' => 1,  // Admin
                 'phone_number' => '08012345678',

@@ -11,16 +11,20 @@ use App\Models\AdminPromo;
 use App\Models\ProductImage;
 use App\Models\Attribute;
 use App\Services\ActivityLogger;
+use App\Services\DeliveryService;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
+use App\Models\Delivery;
 
 class OrderController extends Controller
 {
     protected $generalService;
     protected $notificationService;
+    protected $deliveryService;
 
-    public function __construct(GeneralService $generalService, NotificationService $notificationService)
+    public function __construct(GeneralService $generalService, NotificationService $notificationService, DeliveryService $deliveryService)
     {
+        $this->deliveryService = $deliveryService;
         $this->generalService = $generalService;
         $this->notificationService = $notificationService;
         // $this->middleware('auth');
@@ -32,10 +36,11 @@ class OrderController extends Controller
     {
         $user = $request->authUser;
         $user = [
-            'email' => $user->email ?? $request->email,
-            'full_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $request->full_name,
+            'email' => $user->email ?? $request->delivery_details['recipientEmail'],
+            'full_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $request->delivery_details['recipientName'],
             'id' => $user->id ?? null,
         ];
+        $orderNumber = 'ORD-' . strtoupper(uniqid());
 
         $products = $request->input('products', []);
         $returnCurrency = $request->input('returnCurrency', 'USD');
@@ -95,6 +100,8 @@ class OrderController extends Controller
             ];
 
             $grandTotal += $convertedTotalPrice;
+            //grand total in ngn
+            $grandTotalNGN = $this->generalService->convertMoney($returnCurrency, $grandTotal, 'NGN');
         }
 
         if (empty($orderItems)) {
@@ -106,10 +113,12 @@ class OrderController extends Controller
 
         // Step 2: Create the order
         $order = Order::create([
-            'user_email' => $user->email ?? $request->email,
-            'order_number' => 'ORD-' . strtoupper(uniqid()),
+            'user_email' => $user->email ?? $request->delivery_details['recipientEmail'],
+            'order_number' => $orderNumber,
             'status' => 'pending',
             'grand_total' => $grandTotal,
+            'grand_total_ngn' => $grandTotalNGN,
+            // 'shipping_cost' => 0.00,
             'item_count' => count($orderItems)
         ]);
 
@@ -127,7 +136,26 @@ class OrderController extends Controller
             }
         }
 
-        // Step 4: Return success response with warnings
+        // Step 4: Delivery details
+        $deliveryDetails = $request->input('delivery_details', []);
+        $deliveryDetails['recipientName'] = $user['full_name'];
+        $deliveryDetails['email'] = $user['email'];
+        $deliveryDetails['recipientPhone'] = $request->delivery_details['recipientPhone'] ?? $user['phone'] ?? null;
+        $deliveryDetails['uniqueID'] = $orderNumber;
+        $deliveryDetails['CustToken'] = $orderNumber;
+        $deliveryDetails['BatchID'] = 'BATCH' . strtoupper(uniqid());
+        $deliveryDetails['valueOfItem'] = $grandTotal;
+        // return $deliveryDetails;
+        $result = $this->deliveryService->createDeliveryOrder($deliveryDetails);
+        return $result;
+        $deliveryDetails['delivery_order_id'] = $result['orderNos'][$orderNumber] ?? null;
+
+        //save delivery details to delivery table
+        $delivery = Delivery::create(array_merge([
+            'order_id' => $order->id,
+        ], $deliveryDetails));
+
+        // Step 5: Return success response with warnings
         $response = [
             'status' => 'success',
             'message' => 'Order placed successfully',
@@ -136,7 +164,8 @@ class OrderController extends Controller
                 'order_number' => $order->order_number,
                 'grand_total' => number_format($grandTotal, 2),
                 'currency' => $returnCurrency,
-                'items' => $orderItems
+                'items' => $orderItems,
+                'delivery_details' => $deliveryDetails,
             ]
         ];
 
@@ -223,10 +252,28 @@ class OrderController extends Controller
             ];
         })->values(); // Convert to array
 
+        //order meta data
+        $completeOrders = Order::where('status', 'completed')->count();
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $cancelledOrders = Order::where('status', 'cancelled')->count();
+        $failedOrders = Order::where('status', 'failed')->count();
+        // $totalRevenue = Order::where('status', 'completed')->sum('grand_total');
+        $totalRevenueNGN = Order::where('status', 'completed')->sum('grand_total_ngn');
+        $totalOrders = Order::count();
+        $orderMeta = [
+            'complete_orders' => $completeOrders,
+            'pending_orders' => $pendingOrders,
+            'cancelled_orders' => $cancelledOrders,
+            'failed_orders' => $failedOrders,
+            'total_orders' => $totalOrders,
+            'totalRevenueNGN' => $totalRevenueNGN,
+        ];
+
         return response()->json([
             'message' => 'Order data fetched successfully',
             'total' => $total,
             'data' => $distribution,
+            'order_meta' => $orderMeta,
         ], 200);
     }
 

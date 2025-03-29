@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('order_number')->unique();
             $table->enum('status', ['pending', 'completed', 'cancelled', 'failed'])->default('pending');
             $table->decimal('grand_total', 10, 2);
+            $table->decimal('shipping_cost', 10, 2)->default(0.00);
+            $table->decimal('grand_total_ngn', 10, 2)->default(0.00);
             $table->integer('item_count');
             $table->timestamps();
 

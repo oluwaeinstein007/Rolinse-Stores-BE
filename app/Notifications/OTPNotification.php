@@ -53,8 +53,8 @@ class OTPNotification extends Notification
         ->line(new HtmlString($template))
         ->line('Please use this code for verification purposes.')
         ->line('If you did not request this OTP, there\'s nothing to worry about. You can safely ignore it.')
-        ->line('Have any questions about Maldrini? Drop us a note at dev@stravel.live')
-        ->line('Thank you for choosing Maldrini!');
+        ->line('Have any questions about Rolinse? Drop us a note at hello@rolinse.com')
+        ->line('Thank you for choosing Rolinse!');
             }
 
     /**

@@ -97,24 +97,26 @@ class DeliveryService
     public function createDeliveryOrder($data)
     {
         try {
-            $payload = [[  // API expects an array of orders
-                'recipientAddress' => $data['recipient_address'],
-                'recipientState' => $data['recipient_state'],
-                'recipientName' => $data['recipient_name'],
-                'recipientPhone' => $data['recipient_phone'],
-                'recipientEmail' => $data['recipient_email'] ?? null,
-                'uniqueID' => $data['unique_id'] ?? uniqid('order-'),
-                'BatchID' => $data['batch_id'] ?? uniqid('batch-'),
-                'CustToken' => $data['cust_token'] ?? null,
-                'itemDescription' => $data['item_description'] ?? null,
-                'additionalDetails' => $data['additional_details'] ?? null,
-                'valueOfItem' => $data['value_of_item'],
-                'weight' => $data['weight'],
-                'pickUpState' => $data['pickup_state'] ?? null,
-                'waybillNumber' => $data['waybill_number'] ?? null,
-                'pickUpDate' => $data['pickup_date'] ?? null,
-                'isItemCod' => $data['is_item_cod'] ?? false,
-            ]];
+            // $payload = [[  // API expects an array of orders
+            //     'recipientAddress' => $data['recipient_address'],
+            //     'recipientState' => $data['recipient_state'],
+            //     'recipientName' => $data['recipient_name'],
+            //     'recipientPhone' => $data['recipient_phone'],
+            //     'recipientEmail' => $data['recipient_email'] ?? null,
+            //     'uniqueID' => $data['unique_id'] ?? uniqid('order-'),
+            //     'BatchID' => $data['batch_id'] ?? uniqid('batch-'),
+            //     'CustToken' => $data['cust_token'] ?? null,
+            //     'itemDescription' => $data['item_description'] ?? null,
+            //     'additionalDetails' => $data['additional_details'] ?? null,
+            //     'valueOfItem' => $data['value_of_item'],
+            //     'weight' => $data['weight'],
+            //     'pickUpState' => $data['pickup_state'] ?? null,
+            //     'waybillNumber' => $data['waybill_number'] ?? null,
+            //     'pickUpDate' => $data['pickup_date'] ?? null,
+            //     'isItemCod' => $data['is_item_cod'] ?? false,
+            // ]];
+            $payload = [$data];
+
 
             $bearerToken = Cache::get('fez_bearer_token');
             $secretKey = Cache::get('fez_secret_key');

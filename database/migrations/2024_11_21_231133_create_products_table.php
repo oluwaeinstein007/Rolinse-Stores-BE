@@ -33,6 +33,7 @@ return new class extends Migration
             $table->string('name');
             $table->text('description');
             $table->string('material');
+            $table->decimal('weight', 8, 2)->nullable(); // Weight of the product
             $table->decimal('price', 10, 2);
 
             // $table->boolean('is_deal_of_month')->default(false); // For "Deal of the Month"

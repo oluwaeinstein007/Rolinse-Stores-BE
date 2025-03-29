@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('color')->nullable();
             $table->decimal('price_per_unit', 10, 2);
             $table->decimal('total_price', 10, 2);
+            $table->decimal('weight', 8, 2)->nullable(); // Weight of the product
             $table->string('currency');
             $table->timestamps();
 

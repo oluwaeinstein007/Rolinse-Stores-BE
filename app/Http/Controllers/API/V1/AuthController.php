@@ -382,7 +382,7 @@ class AuthController extends Controller
             // Send the OTP via email
             //   Mail::to($email)->send(new OTPMail($randomDigits));
             //  $user = $user;
-            $notification = ['title' => 'OTP Code from Maldorini', 'otp' => $randomDigits];
+            $notification = ['title' => 'OTP Code from Rolinse', 'otp' => $randomDigits];
             $this->notificationService->sendOTPNotification($user, $notification);
         } catch (Exception $e) {
             return ($e);

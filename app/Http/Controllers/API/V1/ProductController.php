@@ -106,6 +106,7 @@ class ProductController extends Controller
             'brand_id' => 'nullable|exists:brands,id',
             'material' => 'required|string',
             'price' => 'required|numeric',
+            'weight' => 'nullable|numeric',
             'images' => 'array',
             'images.*.file' => 'required|image|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
@@ -190,6 +191,8 @@ class ProductController extends Controller
         $deliveryDetails = $request->input('delivery_details');
         $results = [];
         $totalValue = 0;
+        //get sum of weight of all the products
+        $totalWeight = 0;
 
         foreach ($products as $productData) {
             $productId = $productData['product_id'];
@@ -214,24 +217,25 @@ class ProductController extends Controller
             $totalPrice = $price * $quantity;
             $convertedPrice = $this->generalService->convertMoney($baseCurrency, $totalPrice, $returnCurrency);
             $totalValue += $convertedPrice;
+            $totalWeight += $product->weight * $quantity;
 
             $results[] = [
                 'product_id' => $productId,
                 'quantity' => $quantity,
                 'amount' => $convertedPrice,
-                'currency' => $returnCurrency
+                'currency' => $returnCurrency,
+                'weight' => $product->weight * $quantity, // Assuming weight is in kg
             ];
         }
 
         // Calculate delivery cost if delivery details are provided
         $deliveryCost = 0;
+        $deliveryDetails['weight'] = $totalWeight;
         if (!empty($deliveryDetails)) {
-            // $deliveryDetails['value_of_item'] = (string)$totalValue; // Convert to string as required by Fez API
             $deliveryCostResponse = $this->getDeliveryCost($deliveryDetails);
-// return $deliveryCostResponse;
             if ($deliveryCostResponse && isset($deliveryCostResponse['Cost'])) {
                 $deliveryCost = $this->generalService->convertMoney(
-                    'NGN', // Fez returns cost in Naira
+                    'NGN',
                     $deliveryCostResponse['Cost']['cost'],
                     $returnCurrency
                 );
@@ -243,7 +247,8 @@ class ProductController extends Controller
             'subtotal' => number_format($totalValue, 2),
             'delivery_cost' => number_format($deliveryCost, 2),
             'total_price' => number_format($totalValue + $deliveryCost, 2),
-            'currency' => $returnCurrency
+            'currency' => $returnCurrency,
+            'total_weight' => number_format($totalWeight, 2),
         ];
 
         return $this->success('Prices converted successfully', $data, [], 200);
@@ -259,6 +264,7 @@ class ProductController extends Controller
             'category_id' => 'exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'price' => 'nullable|numeric',
+            'weight' => 'nullable|numeric',
             'discount' => 'nullable|numeric',
             'images' => 'nullable|array',
             'images.*.file' => 'nullable|image|max:2048',
