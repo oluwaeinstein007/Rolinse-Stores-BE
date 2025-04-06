@@ -203,7 +203,7 @@ class OrderController extends Controller
     {
         $user = $request->authUser;
 
-        $orders = Order::with(['items.product'])
+        $orders = Order::with(['items.product', 'delivery'])
             ->where('user_email', $user->email ?? $request->email)
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -281,7 +281,7 @@ class OrderController extends Controller
     //admin get all orders, such that it get all or you can search by order id or user email
     public function getAllOrders(Request $request)
     {
-        $orders = Order::with(['items.product', 'items.product.category', 'items.product.brand'])
+        $orders = Order::with(['items.product', 'items.product.category', 'items.product.brand', 'delivery'])
             ->when($request->has('order_number'), function ($query) use ($request) {
                 return $query->where('order_number', $request->order_number);
             })
