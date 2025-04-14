@@ -8,4 +8,5 @@ enum PaymentGateway: string
     case STRIPE = 'Stripe';
     case BANK_TRANSFER = 'Bank Transfer';
     case PAYSTACK = 'Paystack';
+    case FLUTTERWAVE = 'Flutterwave';
 }

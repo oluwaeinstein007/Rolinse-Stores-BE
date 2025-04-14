@@ -16,11 +16,12 @@ class NotificationService
      * @return mixed
      */
 
-    public function userNotification($user, $type, $subType, $title, $body, $is_email = true, $link = null, $actionText = null){
+    public function userNotification($user, $type, $subType, $title, $body, $is_email = false, $link = null, $actionText = null){
         if($link != null){
             $link = env('FRONTEND_BASE_URL') . $link;
         }
         $notification = $this->storeNotification($user, $type, $subType, $title, $body, $link, $actionText);
+
         if($is_email){
             $this->sendEmailNotification($user,$notification);
         }
@@ -28,19 +29,23 @@ class NotificationService
     }
 
 
-    public function storeNotification($user, $type, $subType, $title, $body, $link = null, $actionText = null){
-        if($user['id']){
-                $notification = ModelsNotification::create([
-                'user_id' => $user['id'] ?? null,
-                'user_email' => $user['email'],
-                'type' => $type,
-                'sub_type' => $subType,
-                'title' => $title,
-                'body' => $body,
-                'link' => $link,
-            ]);
-        }
 
+
+
+    public function storeNotification($user, $type, $subType, $title, $body, $link = null, $actionText = null){
+        $notification = [
+            'user_id' => $user['id'] ?? null,
+            'user_email' => $user['email'],
+            'type' => $type,
+            'sub_type' => $subType,
+            'title' => $title,
+            'body' => $body,
+            'link' => $link,
+        ];
+
+        if (!empty($user['id'])) {
+            ModelsNotification::create($notification);
+        }
         //merge actionText
         $notification['actionText'] = $actionText;
 

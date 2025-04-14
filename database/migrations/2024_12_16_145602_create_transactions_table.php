@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('currency')->nullable();
             $table->foreignId('order_id')->nullable()->constrained('orders')->cascadeOnDelete();
             $table->decimal('amount', 10, 2);
-            $table->enum('payment_gateway', ['PayPal', 'Stripe', 'Bank Transfer', 'Paystack'])->nullable();
+            $table->enum('payment_gateway', ['PayPal', 'Stripe', 'Bank Transfer', 'Paystack', 'Flutterwave'])->nullable();
             $table->enum('type', ['one-off', 'recurring', 'tip', 'refund']);
             $table->enum('status', ['completed', 'rejected', 'cancelled', 'pending', 'in-escrow', 'withdrawn']);
             //deleted_at

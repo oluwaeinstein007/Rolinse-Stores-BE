@@ -14,6 +14,7 @@ use App\Models\ProductImage;
 use App\Models\SpecialDeals;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
+
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
@@ -28,11 +29,13 @@ class ProductController extends Controller
 {
     protected $generalService;
     protected $notificationService;
+    protected $deliveryService;
 
-    public function __construct(GeneralService $generalService, NotificationService $notificationService)
+    public function __construct(GeneralService $generalService, NotificationService $notificationService, DeliveryService $deliveryService)
     {
         $this->generalService = $generalService;
         $this->notificationService = $notificationService;
+        $this->deliveryService = $deliveryService;
         // $this->middleware('auth');
     }
 
@@ -173,11 +176,22 @@ class ProductController extends Controller
     {
         try {
             $fezService = app(DeliveryService::class);
-            return $fezService->calculateDeliveryCost([
-                'pickUpState' => $deliveryDetails['pickUpState'] ?? "Lagos",
-                'state' => $deliveryDetails['state'],
-                'weight' => $deliveryDetails['weight'] ?? 1,
-            ]);
+
+            if($deliveryDetails['is_nigeria']){
+                return $fezService->calculateDeliveryCost([
+                    'pickUpState' => $deliveryDetails['pickUpState'] ?? "Lagos",
+                    'state' => $deliveryDetails['state'],
+                    'weight' => $deliveryDetails['weight'] ?? 1,
+                ]);
+            }else{
+                return $this->deliveryService->calculateExportCost([
+                    'pickUpState' => $deliveryDetails['pickUpState'] ?? "Lagos",
+                    'weightId' => $deliveryDetails['weightId'] ?? 1,
+                    'exportLocationId' => $deliveryDetails['exportLocationId'],
+                ]);
+            }
+
+
         } catch (Exception $e) {
             // \Log::error('Delivery cost calculation failed: ' . $e->getMessage());
             return null;
@@ -233,10 +247,10 @@ class ProductController extends Controller
         $deliveryDetails['weight'] = $totalWeight;
         if (!empty($deliveryDetails)) {
             $deliveryCostResponse = $this->getDeliveryCost($deliveryDetails);
-            if ($deliveryCostResponse && isset($deliveryCostResponse['Cost'])) {
+            if ($deliveryCostResponse && isset($deliveryCostResponse['data']['price'])) {
                 $deliveryCost = $this->generalService->convertMoney(
                     'NGN',
-                    $deliveryCostResponse['Cost']['cost'],
+                    $deliveryCostResponse['data']['price'],
                     $returnCurrency
                 );
             }

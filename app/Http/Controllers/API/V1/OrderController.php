@@ -15,6 +15,7 @@ use App\Services\DeliveryService;
 use App\Services\GeneralService;
 use App\Services\NotificationService;
 use App\Models\Delivery;
+use Exception;
 
 class OrderController extends Controller
 {
@@ -145,14 +146,30 @@ class OrderController extends Controller
         $deliveryDetails['CustToken'] = $orderNumber;
         $deliveryDetails['BatchID'] = 'BATCH' . strtoupper(uniqid());
         $deliveryDetails['valueOfItem'] = $grandTotal;
-        // return $deliveryDetails;
-        $result = $this->deliveryService->createDeliveryOrder($deliveryDetails);
-        return $result;
+
+        if($deliveryDetails['is_nigeria']){
+            try{
+                $result = $this->deliveryService->createDeliveryOrder($deliveryDetails) ?? 'seen';
+            }
+            catch(\Exception $e){
+                // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
+            }
+
+        }else{
+            try{
+                $result = $this->deliveryService->createExportOrder($deliveryDetails) ?? 'hey';
+            }
+            catch(\Exception $e){
+                // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
+            }
+        }
+
         $deliveryDetails['delivery_order_id'] = $result['orderNos'][$orderNumber] ?? null;
 
         //save delivery details to delivery table
         $delivery = Delivery::create(array_merge([
             'order_id' => $order->id,
+            'delivery_order_id' => $deliveryDetails['delivery_order_id'] ?? null,
         ], $deliveryDetails));
 
         // Step 5: Return success response with warnings
@@ -181,8 +198,10 @@ class OrderController extends Controller
             'Order',
             'Order Placed',
             'Order Placed.',
-            'You have placed an order with ID: ' . $order->order_number,
-            false
+            'You have placed an order with ID: ' . $order->order_number . ' and delivery id: ' . $deliveryDetails['delivery_order_id'] . 'You can check on the status of this order on Rolinse. We will notify you when this order has been delivered',
+            true,
+            '/orders/' . $order->id,
+            'View Order'
         );
 
         if ($request->authUser) {

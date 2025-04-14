@@ -73,6 +73,12 @@ Route::prefix('v1')->group(callback: function () {
                 Route::post('/initiate', [PaymentController::class, 'initiatePayment']);
                 Route::get('/verify', [PaymentController::class, 'verifyPayment']);
             });
+
+            Route::prefix('flutterwave')->group(function () {
+                Route::post('initiate', [PaymentController::class, 'startPayment']);
+                Route::get('verify', [PaymentController::class, 'checkPayment']);
+                Route::post('webhook', [PaymentController::class, 'webhook']);
+            });
         });
 
         Route::prefix('deals')->group(function () {
@@ -201,8 +207,8 @@ Route::prefix('v1')->group(callback: function () {
         Route::get('/export-locations', [DeliveryController::class, 'getExportLocations']);
         Route::post('/export-cost', [DeliveryController::class, 'calculateExportCost']);
         Route::post('/create-export-order', [DeliveryController::class, 'createExportOrder']);
-        Route::post('/webhook', [DeliveryController::class, 'handleWebhook'])
-            ->middleware('verify.webhook');
+        Route::post('/webhook', [DeliveryController::class, 'handleWebhook']);
+            // ->middleware('verify.webhook');
     });
 
 });

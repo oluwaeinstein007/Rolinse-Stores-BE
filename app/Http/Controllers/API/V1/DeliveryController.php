@@ -10,6 +10,8 @@ use App\Models\Order;
 use Illuminate\Support\Facades\Log;
 use App\Services\ActivityLogger;
 use App\Services\NotificationService;
+use App\Models\Delivery;
+use App\Models\User;
 
 
 class DeliveryController extends Controller
@@ -319,40 +321,58 @@ class DeliveryController extends Controller
             ]);
 
             // Find the order in our system
-            $order = Order::where('delivery_tracking_number', $request->orderNumber)
-                ->orWhere('order_number', $request->orderNumber)
+            $delivery = Delivery::where('delivery_order_id', $request->orderNumber)
                 ->first();
+
+            // Update order status
+            $delivery->delivery_status = $request->status;
+            $delivery->save();
+
+            $order = Order::where('id', $delivery->order_id)
+                ->first();
+
 
             if (!$order) {
                 Log::warning('Webhook: Order not found', [
-                    'order_number' => $request->orderNumber,
+                    'delivery_order_id' => $request->orderNumber,
                     'status' => $request->status
                 ]);
                 return response()->json(['message' => 'Order not found'], 404);
             }
 
             // Update order status
-            $order->delivery_status = $request->status;
-            $order->save();
+            // $order->status = 'completed';
+            // $order->save();
 
-            // Log the status change
-            ActivityLogger::log(
-                $order->user_id ?? 0,
-                'Order',
-                'Delivery Status Update',
-                "Order {$order->order_number} delivery status updated to: {$request->status}"
-            );
+            $user = User::where('email', $order->user_email)->first();
+
+            if($user){
+                // Log the status change
+                ActivityLogger::log(
+                    'Order',
+                    'Delivery Status Update',
+                    "Order {$order->order_number} delivery status updated to: {$request->status}",
+                    $user['id'] ?? null,
+                );
+            }
+
+            $user =[
+                'email' => $order->user_email,
+                'full_name' => $user->first_name ?? $delivery->recipientName ?? null,
+                'id' => $user['id'] ?? null,
+            ];
 
             // Send notification to user if order exists
-            if ($order->user_id) {
                 $this->notificationService->userNotification(
-                    $order->user,
+                    $user,
                     'Order',
                     'Delivery Status Update',
                     'Delivery Status Updated',
-                    "Your order {$order->order_number} status has been updated to: {$request->status}"
+                    "Your order {$order->order_number} with delivery id {$request->orderNumber} status has been updated to: {$request->status}",
+                    true,
+                    '/orders/' . $order->id,
+                    'View Order'
                 );
-            }
 
             return response()->json([
                 'status' => 'success',

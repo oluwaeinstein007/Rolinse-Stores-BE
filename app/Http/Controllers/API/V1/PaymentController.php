@@ -18,12 +18,17 @@ class PaymentController extends Controller
     private $paystackSecretKey;
     private $paystackPaymentUrl;
 
+    protected $flutterwaveSecretKey;
+    protected $flutterwavePaymentUrl;
+
     public function __construct()
     {
         // $this->paystackSecretKey = env('PAYSTACK_SECRET_KEY');
         // $this->paystackPaymentUrl = env('PAYSTACK_PAYMENT_URL');
         $this->paystackSecretKey = config('services.paystack.secret_key');
         $this->paystackPaymentUrl = config('services.paystack.payment_url');
+        $this->flutterwaveSecretKey = config('services.flutterwave.secret_key');
+        $this->flutterwavePaymentUrl = config('services.flutterwave.payment_url');
     }
 
 
@@ -241,5 +246,181 @@ class PaymentController extends Controller
             ], 500);
         }
     }
+
+
+
+
+
+
+    /* -----------------  Flutterwave Methods ----------------- */
+
+    /**
+     * Initiate a Flutterwave payment.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function startPayment(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'amount' => 'required|numeric',
+            'order_id' => 'required|numeric',
+        ]);
+
+        $client = new Client();
+
+        try {
+            $response = $client->post("{$this->flutterwavePaymentUrl}/payments", [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->flutterwaveSecretKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'tx_ref' => uniqid('flw_'),
+                    'amount' => $request->amount,
+                    'currency' => $request->currency ?? 'NGN',
+                    'payment_options' => 'card,account,ussd',
+                    'redirect_url' => env('FRONTEND_CALLBACK_URL'),
+                    'customer' => [
+                        'email' => $request->email,
+                        'name' => $request->name ?? 'Customer',
+                    ],
+                    'customizations' => [
+                        'title' => config('app.name'),
+                        'description' => 'Payment for order #' . $request->order_id,
+                    ],
+                ],
+            ]);
+
+            $responseData = json_decode($response->getBody(), true);
+
+            // Save to transaction table
+            $transaction = Transaction::create([
+                'reference' => $responseData['data']['tx_ref'],
+                'payment_id' => $responseData['data']['flw_ref'] ?? null,
+                'amount' => $request->amount,
+                'currency' => $request->currency ?? 'NGN',
+                'user_email' => $request->user()->email ?? $request->email,
+                'order_id' => $request->order_id,
+                'payment_gateway' => PaymentGateway::FLUTTERWAVE->value,
+                'type' => TransactionType::ONEOFF->value,
+                'status' => TransactionStatus::PENDING->value,
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => array_merge($responseData['data'], [
+                    'transaction' => $transaction,
+                    'payment_link' => $responseData['data']['link'] ?? null,
+                ]),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Flutterwave Initiate Payment Error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to initiate payment. Please try again.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify a Flutterwave payment.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function checkPayment(Request $request)
+    {
+        $request->validate([
+            'transaction_id' => 'required|string',
+        ]);
+
+        $client = new Client();
+
+        try {
+            $response = $client->get("{$this->flutterwavePaymentUrl}/transactions/{$request->transaction_id}/verify", [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->flutterwaveSecretKey,
+                ],
+            ]);
+
+            $responseData = json_decode($response->getBody(), true);
+
+            // Get the transaction from the database
+            $transaction = Transaction::where('payment_id', $request->transaction_id)
+                ->orWhere('reference', $request->transaction_id)
+                ->first();
+
+            if ($transaction) {
+                // Update the transaction status
+                $transaction->status = $responseData['data']['status'] === 'successful'
+                    ? TransactionStatus::COMPLETED->value
+                    : TransactionStatus::REJECTED->value;
+                $transaction->save();
+            }
+
+            if ($responseData['status'] === 'success' && $responseData['data']['status'] === 'successful') {
+                return response()->json([
+                    'status' => 'success',
+                    'data' => $responseData['data'],
+                    'transaction' => $transaction,
+                ]);
+            } else {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Payment verification failed.',
+                    'data' => $responseData['data'] ?? null,
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            Log::error('Flutterwave Verify Payment Error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to verify payment. Please try again.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle Flutterwave webhook
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function handleWebhook(Request $request)
+    {
+        $signature = $request->header('verif-hash');
+        $secretHash = config('services.flutterwave.secret_hash');
+
+        if (!$signature || $signature !== $secretHash) {
+            Log::error('Flutterwave webhook unauthorized access attempt');
+            abort(401);
+        }
+
+        $payload = $request->all();
+
+        try {
+            $transaction = Transaction::where('payment_id', $payload['data']['flw_ref'])
+                ->orWhere('reference', $payload['data']['tx_ref'])
+                ->first();
+
+            if ($transaction) {
+                $transaction->status = $payload['data']['status'] === 'successful'
+                    ? TransactionStatus::COMPLETED->value
+                    : TransactionStatus::REJECTED->value;
+                $transaction->save();
+
+                // Trigger any post-payment actions here
+            }
+
+            return response()->json(['status' => 'success'], 200);
+        } catch (\Exception $e) {
+            Log::error('Flutterwave Webhook Error: ' . $e->getMessage());
+            return response()->json(['status' => 'error'], 500);
+        }
+    }
+
 
 }

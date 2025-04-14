@@ -25,6 +25,7 @@ class Delivery extends Model
         'valueOfItem',
         'delivery_order_id',
         'delivery_status',
+        'is_nigeria',
     ];
 
     public function order()
