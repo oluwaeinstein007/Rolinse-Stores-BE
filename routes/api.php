@@ -69,6 +69,11 @@ Route::prefix('v1')->group(callback: function () {
                 Route::post('webhook', [PaymentController::class, 'webhook']);
             });
 
+            Route::prefix('paypal')->group(function () {
+                Route::post('/initiate', [PaymentController::class, 'initiatePaypalPayment']);
+                Route::post('/verify', [PaymentController::class, 'verifyPaypalPayment']);
+            });
+
             Route::prefix('paystack')->group(function () {
                 Route::post('/initiate', [PaymentController::class, 'initiatePayment']);
                 Route::get('/verify', [PaymentController::class, 'verifyPayment']);
@@ -153,13 +158,6 @@ Route::prefix('v1')->group(callback: function () {
                 // Route::get('/get-types', [ProductController::class, 'getTypes']);
                 // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
                 // Route::get('/filter', [ProductController::class, 'index']);
-            });
-
-            Route::prefix('settings')->group(function () {
-                Route::post('/', [AdminController::class, 'adminSettings']);
-                Route::get('/{id?}', [AdminController::class, 'getAdminSettings']);
-                Route::put('/{id}', [AdminController::class, 'updateAdminSetting']);
-                Route::delete('/{id}', [AdminController::class, 'deleteAdminSetting']);
             });
 
             Route::prefix('orders')->group(function () {

@@ -5,7 +5,6 @@ use App\Notifications\BirthdayWishes;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Console\Command;
 use App\Models\User;
-// use App\Jobs\SendBirthdayMessage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schedule;
 

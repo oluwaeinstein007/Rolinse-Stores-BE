@@ -12,6 +12,8 @@ use App\Enums\PaymentGateway;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\Log;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Config;
+use App\Traits\RespondWithHttpStatus; // Added this use statement
 
 class PaymentController extends Controller
 {
@@ -21,14 +23,28 @@ class PaymentController extends Controller
     protected $flutterwaveSecretKey;
     protected $flutterwavePaymentUrl;
 
+    protected $paypalClientId;
+    protected $paypalClientSecret;
+    protected $paypalMode;
+    protected $paypalApiUrl;
+
     public function __construct()
     {
-        // $this->paystackSecretKey = env('PAYSTACK_SECRET_KEY');
-        // $this->paystackPaymentUrl = env('PAYSTACK_PAYMENT_URL');
+        // Paystack
         $this->paystackSecretKey = config('services.paystack.secret_key');
         $this->paystackPaymentUrl = config('services.paystack.payment_url');
+
+        // Flutterwave
         $this->flutterwaveSecretKey = config('services.flutterwave.secret_key');
         $this->flutterwavePaymentUrl = config('services.flutterwave.payment_url');
+
+        // PayPal
+        $this->paypalClientId = config('services.paypal.client_id');
+        $this->paypalClientSecret = config('services.paypal.client_secret');
+        $this->paypalMode = config('services.paypal.mode', 'sandbox');
+        $this->paypalApiUrl = $this->paypalMode === 'sandbox'
+            ? 'https://api-m.sandbox.paypal.com/v2/checkout/orders'
+            : 'https://api-m.paypal.com/v2/checkout/orders';
     }
 
 
@@ -43,7 +59,7 @@ class PaymentController extends Controller
             'currency' => $request->currency ?? 'USD',
             'user_email' => $user->email ?? $request->email,
             'order_id' => $request->order_id,
-            'payment_gateway' => PaymentGateway::STRIPE->value,
+            'payment_gateway' => PaymentGateway::STRIPE->value, // Defaulting to Stripe for now
             'type' => TransactionType::ONEOFF->value,
             'status' => TransactionStatus::PENDING->value,
         ]);
@@ -422,5 +438,185 @@ class PaymentController extends Controller
         }
     }
 
+    /* -----------------  PayPal Methods ----------------- */
+
+    /**
+     * Initiate a PayPal payment.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function initiatePaypalPayment(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric',
+            'order_id' => 'required|numeric',
+            'currency' => 'required|string',
+        ]);
+
+        if (!$this->paypalClientId || !$this->paypalClientSecret) {
+            return $this->failure('PayPal API credentials not configured.', null, 500);
+        }
+
+        $client = new Client();
+
+        try {
+            // Create a transaction record first
+            $transaction = Transaction::create([
+                'reference' => strtoupper(str_replace('_', ' ', bin2hex(random_bytes(8)))), // Unique reference for PayPal
+                'amount' => $request->amount,
+                'currency' => $request->currency,
+                'user_email' => $request->user()->email ?? $request->email, // Assuming user is authenticated
+                'order_id' => $request->order_id,
+                'payment_gateway' => PaymentGateway::PAYPAL->value,
+                'type' => TransactionType::ONEOFF->value,
+                'status' => TransactionStatus::PENDING->value,
+            ]);
+
+            // Get PayPal access token
+            $authResponse = $client->post("https://api-m.{$this->paypalMode}.paypal.com/v1/oauth2/token", [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Accept-Language' => 'en_US',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ],
+                'form_params' => [
+                    'grant_type' => 'client_credentials',
+                ],
+                'auth' => [$this->paypalClientId, $this->paypalClientSecret],
+            ]);
+
+            $authData = json_decode($authResponse->getBody()->getContents(), true);
+            $accessToken = $authData['access_token'];
+
+            // Create PayPal order
+            $orderResponse = $client->post($this->paypalApiUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'intent' => 'CAPTURE',
+                    'purchase_units' => [
+                        [
+                            'reference_id' => $transaction->reference,
+                            'amount' => [
+                                'value' => $request->amount,
+                                'currency_code' => $request->currency,
+                            ],
+                        ],
+                    ],
+                    'application_context' => [
+                        'return_url' => env('FRONTEND_CALLBACK_URL') . '/payment/success?transaction_ref=' . $transaction->reference,
+                        'cancel_url' => env('FRONTEND_CALLBACK_URL') . '/payment/cancel?transaction_ref=' . $transaction->reference,
+                        'brand_name' => config('app.name'),
+                    ],
+                ],
+            ]);
+
+            $orderData = json_decode($orderResponse->getBody()->getContents(), true);
+
+            // Update transaction with PayPal order ID
+            $transaction->update(['payment_id' => $orderData['id']]);
+
+            return $this->success('PayPal payment initiated.', [
+                'paypal_order_id' => $orderData['id'],
+                'paypal_approve_url' => $orderData['links'][1]['href'], // Assuming the second link is the approval URL
+                'transaction_reference' => $transaction->reference,
+            ]);
+
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            Log::error('PayPal Initiate Payment Error: ' . $e->getMessage());
+            if ($e->hasResponse()) {
+                $responseBody = $e->getResponse()->getBody()->getContents();
+                Log::error('PayPal API Response: ' . $responseBody);
+                return $this->failure('PayPal API error: ' . $responseBody, null, $e->getResponse()->getStatusCode());
+            }
+            return $this->failure('Unable to initiate PayPal payment. Please try again.', null, 500);
+        } catch (\Exception $e) {
+            Log::error('PayPal Initiate Payment General Error: ' . $e->getMessage());
+            return $this->error('Unable to initiate PayPal payment. Please try again.', 500);
+        }
+    }
+
+    /**
+     * Verify a PayPal payment.
+     * This method would be called after the user completes the PayPal flow.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function verifyPaypalPayment(Request $request)
+    {
+        $request->validate([
+            'order_id' => 'required|string', // This is the PayPal order ID
+            'transaction_reference' => 'required|string', // Our internal transaction reference
+        ]);
+
+        $client = new Client();
+
+        try {
+            // Get PayPal access token
+            $authResponse = $client->post("https://api-m.{$this->paypalMode}.paypal.com/v1/oauth2/token", [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Accept-Language' => 'en_US',
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ],
+                'form_params' => [
+                    'grant_type' => 'client_credentials',
+                ],
+                'auth' => [$this->paypalClientId, $this->paypalClientSecret],
+            ]);
+
+            $authData = json_decode($authResponse->getBody()->getContents(), true);
+            $accessToken = $authData['access_token'];
+
+            // Capture the PayPal order to finalize the payment
+            $captureUrl = "https://api-m.{$this->paypalMode}.paypal.com/v2/checkout/orders/{$request->order_id}/capture";
+            $captureResponse = $client->post($captureUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Content-Type' => 'application/json',
+                ],
+            ]);
+
+            $captureData = json_decode($captureResponse->getBody()->getContents(), true);
+
+            // Find the transaction in our database
+            $transaction = Transaction::where('reference', $request->transaction_reference)->first();
+
+            if ($transaction) {
+                if ($captureData['status'] === 'COMPLETED') {
+                    $transaction->status = TransactionStatus::COMPLETED->value;
+                    $transaction->payment_id = $request->order_id; // Store PayPal order ID
+                    $transaction->save();
+                    return $this->success('PayPal payment completed successfully.', $transaction);
+                } else {
+                    $transaction->status = TransactionStatus::REJECTED->value;
+                    $transaction->save();
+                    return $this->failure('PayPal payment capture failed or was not completed.', null, 400);
+                }
+            } else {
+                return $this->failure('Transaction not found.', null, 404);
+            }
+
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            Log::error('PayPal Verify Payment Error: ' . $e->getMessage());
+            if ($e->hasResponse()) {
+                $responseBody = $e->getResponse()->getBody()->getContents();
+                Log::error('PayPal API Response: ' . $responseBody);
+                return $this->failure('PayPal API error during verification: ' . $responseBody, null, $e->getResponse()->getStatusCode());
+            }
+            return $this->failure('Unable to verify PayPal payment. Please try again.', null, 500);
+        } catch (\Exception $e) {
+            Log::error('PayPal Verify Payment General Error: ' . $e->getMessage());
+            return $this->error('Unable to verify PayPal payment. Please try again.', 500);
+        }
+    }
+
+    // Add a method to handle the payment gateway selection if needed
+    // For example, a new endpoint that takes the gateway and amount, then calls the appropriate initiate method.
+    // For now, we'll assume the frontend calls the specific initiate methods.
 
 }
