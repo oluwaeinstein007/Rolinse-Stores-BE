@@ -297,7 +297,7 @@ class PaymentController extends Controller
                     'amount' => $request->amount,
                     'currency' => $request->currency ?? 'NGN',
                     'payment_options' => 'card,account,ussd',
-                    'redirect_url' => env('FRONTEND_CALLBACK_URL'),
+                    'redirect_url' => env('Frontend_Callback'),
                     'customer' => [
                         'email' => $request->email,
                         'name' => $request->name ?? 'Customer',
@@ -507,8 +507,8 @@ class PaymentController extends Controller
                         ],
                     ],
                     'application_context' => [
-                        'return_url' => env('FRONTEND_CALLBACK_URL') . '/payment/success?transaction_ref=' . $transaction->reference,
-                        'cancel_url' => env('FRONTEND_CALLBACK_URL') . '/payment/cancel?transaction_ref=' . $transaction->reference,
+                        'return_url' => env('Frontend_Callback') . '/payment/success?transaction_ref=' . $transaction->reference,
+                        'cancel_url' => env('Frontend_Callback') . '/payment/cancel?transaction_ref=' . $transaction->reference,
                         'brand_name' => config('app.name'),
                     ],
                 ],
