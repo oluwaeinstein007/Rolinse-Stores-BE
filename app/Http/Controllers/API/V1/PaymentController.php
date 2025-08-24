@@ -21,6 +21,7 @@ class PaymentController extends Controller
     private $paystackPaymentUrl;
 
     protected $flutterwaveSecretKey;
+    protected $flutterwavePublicKey;
     protected $flutterwavePaymentUrl;
 
     protected $paypalClientId;
@@ -37,6 +38,7 @@ class PaymentController extends Controller
         // Flutterwave
         $this->flutterwaveSecretKey = config('services.flutterwave.secret_key');
         $this->flutterwavePaymentUrl = config('services.flutterwave.payment_url');
+        $this->flutterwavePublicKey = config('services.flutterwave.public_key');
 
         // PayPal
         $this->paypalClientId = config('services.paypal.client_id');
@@ -276,15 +278,19 @@ class PaymentController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function startPayment(Request $request)
+
+     public function startPayment(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
             'amount' => 'required|numeric',
             'order_id' => 'required|numeric',
+            // 'currency' is not required as it defaults to 'NGN'
         ]);
 
         $client = new Client();
+        // 1. Generate tx_ref BEFORE the API call and store it.
+        $generatedTxRef = uniqid('flw_');
 
         try {
             $response = $client->post("{$this->flutterwavePaymentUrl}/payments", [
@@ -293,7 +299,7 @@ class PaymentController extends Controller
                     'Content-Type' => 'application/json',
                 ],
                 'json' => [
-                    'tx_ref' => uniqid('flw_'),
+                    'tx_ref' => $generatedTxRef, // Use the stored reference
                     'amount' => $request->amount,
                     'currency' => $request->currency ?? 'NGN',
                     'payment_options' => 'card,account,ussd',
@@ -311,9 +317,22 @@ class PaymentController extends Controller
 
             $responseData = json_decode($response->getBody(), true);
 
-            // Save to transaction table
+            // 2. IMPORTANT: Check for API status success before proceeding
+            if (!isset($responseData['status']) || $responseData['status'] !== 'success' || !isset($responseData['data'])) {
+                // Log the actual error message from Flutterwave
+                $errorMessage = $responseData['message'] ?? 'API did not return a success status or missing data.';
+                Log::error('Flutterwave Initiate Payment API Error: ' . $errorMessage . ' Response: ' . json_encode($responseData));
+
+                // Return a more specific error to the client
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Payment initiation failed with error from gateway: ' . $errorMessage,
+                ], 500);
+            }
+
+            // 3. Save to transaction table using the locally generated tx_ref
             $transaction = Transaction::create([
-                'reference' => $responseData['data']['tx_ref'],
+                'reference' => $generatedTxRef, // USE THE LOCALLY GENERATED TX_REF
                 'payment_id' => $responseData['data']['flw_ref'] ?? null,
                 'amount' => $request->amount,
                 'currency' => $request->currency ?? 'NGN',
@@ -331,15 +350,17 @@ class PaymentController extends Controller
                     'payment_link' => $responseData['data']['link'] ?? null,
                 ]),
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Flutterwave Initiate Payment Error: ' . $e->getMessage());
+            Log::error('Flutterwave Initiate Payment Error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unable to initiate payment. Please try again.',
+                'message' => 'Unable to initiate payment due to network or Guzzle error.',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
+
 
     /**
      * Verify a Flutterwave payment.
