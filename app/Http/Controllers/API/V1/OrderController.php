@@ -193,16 +193,32 @@ class OrderController extends Controller
 
         // $full_name = ($user->first_name . ' ' . $user->last_name) ?? $request->full_name;
 
-        $this->notificationService->userNotification(
-            $user,
-            'Order',
-            'Order Placed',
-            'Order Placed.',
-            'You have placed an order with ID: ' . $order->order_number . ' and delivery id: ' . $deliveryDetails['delivery_order_id'] . 'You can check on the status of this order on Rolinse. We will notify you when this order has been delivered',
-            true,
-            '/orders/' . $order->id,
-            'View Order'
-        );
+        try {
+            $this->notificationService->userNotification(
+                $user,
+                'Order',
+                'Order Placed',
+                'Order Placed.',
+                'You have placed an order with ID: ' . $order->order_number . ' and delivery id: ' . $deliveryDetails['delivery_order_id'] . 'You can check on the status of this order on Rolinse. We will notify you when this order has been delivered',
+                true,
+                '/orders/' . $order->id,
+                'View Order'
+            );
+        } catch (Exception $e) {
+            // Log the error or handle it as needed
+            // For now, we'll just ignore email sending failures
+        }
+
+        // $this->notificationService->userNotification(
+        //     $user,
+        //     'Order',
+        //     'Order Placed',
+        //     'Order Placed.',
+        //     'You have placed an order with ID: ' . $order->order_number . ' and delivery id: ' . $deliveryDetails['delivery_order_id'] . 'You can check on the status of this order on Rolinse. We will notify you when this order has been delivered',
+        //     true,
+        //     '/orders/' . $order->id,
+        //     'View Order'
+        // );
 
         if ($request->authUser) {
             ActivityLogger::log(
