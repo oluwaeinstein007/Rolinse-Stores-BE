@@ -29,6 +29,7 @@ return new class extends Migration
             $table->string('delivery_order_id')->nullable(); // Store the order ID from the external delivery service
             $table->string('delivery_status')->default('pending'); // Default status can be 'pending', 'shipped', 'delivered', etc.
             $table->boolean('is_nigeria')->default(true); // Assuming this is a boolean field
+            $table->boolean('is_benin')->default(false); // Assuming this is a boolean field
             $table->timestamps();
 
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade'); // Assuming you have an orders table

@@ -131,9 +131,11 @@ class OrderController extends Controller
 
         if($request->has('promo_code')){
             $promo = AdminPromo::where('promo_code', $request->promo_code)->first();
-            if($promo){
-                $promo->users()->attach($user['id']);
-                $promo->updateMaxUses($promo->id);
+            if($request->user()){
+                if($promo){
+                    $promo->users()->attach($user['id']);
+                    $promo->updateMaxUses($promo->id);
+                }
             }
         }
 
@@ -212,17 +214,6 @@ class OrderController extends Controller
             // Log the error or handle it as needed
             // For now, we'll just ignore email sending failures
         }
-
-        // $this->notificationService->userNotification(
-        //     $user,
-        //     'Order',
-        //     'Order Placed',
-        //     'Order Placed.',
-        //     'You have placed an order with ID: ' . $order->order_number . ' and delivery id: ' . $deliveryDetails['delivery_order_id'] . 'You can check on the status of this order on Rolinse. We will notify you when this order has been delivered',
-        //     true,
-        //     '/orders/' . $order->id,
-        //     'View Order'
-        // );
 
         if ($request->authUser) {
             ActivityLogger::log(

@@ -17,4 +17,8 @@ class PromoUser extends Model
     public function promo(){
         return $this->belongsTo(AdminPromo::class);
     }
+
+    public function scopeUsed($query, $userId, $promoId){
+        return $query->where('user_id', $userId)->where('promo_id', $promoId);
+    }
 }

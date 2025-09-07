@@ -12,6 +12,8 @@ use App\Models\BestSeller;
 use Carbon\Carbon;
 use App\Models\ProductImage;
 use App\Models\SpecialDeals;
+use App\Models\AdminPromo;
+use App\Models\PromoUser;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
 
@@ -130,29 +132,6 @@ class ProductController extends Controller
             }
         }
 
-        // Save images
-        // foreach ($request->images as $image) {
-        //     // Get the original file extension
-        //     $fileExtension = $image['file']->getClientOriginalExtension();
-
-        //     // Generate a unique, code-based file name
-        //     $fileName = uniqid('img_') . '_' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT) . '.' . $fileExtension;
-
-        //     // Save the file in the desired directory
-        //     $path = public_path('storage/products');
-        //     $image['file']->move($path, $fileName);
-
-        //     // Generate the full URL to the image
-        //     $imageUrl = url('storage/products/' . $fileName);
-
-        //     // Store the URL in the database
-        //     $product->images()->create([
-        //         'image_path' => $imageUrl,
-        //         'color_id' => $image['color_id']
-        //     ]);
-
-        // }
-
 
         if ($request->has('images')) {
             foreach ($request->images as $image) {
@@ -268,21 +247,20 @@ class ProductController extends Controller
 
         //apply promo code if available
         if ($request->has('promo_code') && $request->promo_code) {
-            $promoCode = $request->promo_code;
             $promo = AdminPromo::where('promo_code', $request->promo_code)->first();
-            if ($promo) {
-                if ($promo->type === 'percentage') {
-                    $discountAmount = ($totalValue * $promo->value) / 100;
-                } else {
-                    //fixed amount
-                    $discountAmount = $this->generalService->convertMoney(
-                        $promo->base_currency ?? 'USD',
-                        $promo->value,
-                        $returnCurrency
-                    );
+            // Check if promo exists before trying to use its ID
+                if($request->user()){
+                    $userId = $request->user()->id;
+                    if ($promo) {
+                        $promoUsed = PromoUser::query()->where('user_id', $userId)->where('promo_id', $promo->id)->first();
+                        //apply discount_percentage to totalValue
+                        if (!$promoUsed) {
+                                $discountAmount = ($totalValue * $promo->discount_percentage) / 100;
+                                $totalValue -= $discountAmount;
+                        }
                 }
-                $totalValue -= $discountAmount;
             }
+        }
 
 
 
@@ -591,4 +569,3 @@ class ProductController extends Controller
     }
 
 }
-
