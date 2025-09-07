@@ -245,16 +245,46 @@ class ProductController extends Controller
         // Calculate delivery cost if delivery details are provided
         $deliveryCost = 0;
         $deliveryDetails['weight'] = $totalWeight;
-        if (!empty($deliveryDetails)) {
-            $deliveryCostResponse = $this->getDeliveryCost($deliveryDetails);
-            if ($deliveryCostResponse && isset($deliveryCostResponse['data']['price'])) {
-                $deliveryCost = $this->generalService->convertMoney(
+        $presetBeninPrice = env('BENIN_DELIVERY_PRICE') ?? 50000; //in NGN
+
+        if($deliveryDetails['is_benin']){
+            $deliveryCost = $this->generalService->convertMoney(
                     'NGN',
-                    $deliveryCostResponse['data']['price'],
+                    $presetBeninPrice ?? 5000,
                     $returnCurrency
                 );
+        }else{
+            if (!empty($deliveryDetails)) {
+                $deliveryCostResponse = $this->getDeliveryCost($deliveryDetails);
+                if ($deliveryCostResponse && isset($deliveryCostResponse['data']['price'])) {
+                    $deliveryCost = $this->generalService->convertMoney(
+                        'NGN',
+                        $deliveryCostResponse['data']['price'],
+                        $returnCurrency
+                    );
+                }
             }
         }
+
+        //apply promo code if available
+        if ($request->has('promo_code') && $request->promo_code) {
+            $promoCode = $request->promo_code;
+            $promo = AdminPromo::where('promo_code', $request->promo_code)->first();
+            if ($promo) {
+                if ($promo->type === 'percentage') {
+                    $discountAmount = ($totalValue * $promo->value) / 100;
+                } else {
+                    //fixed amount
+                    $discountAmount = $this->generalService->convertMoney(
+                        $promo->base_currency ?? 'USD',
+                        $promo->value,
+                        $returnCurrency
+                    );
+                }
+                $totalValue -= $discountAmount;
+            }
+
+
 
         $data = [
             'products' => $results,

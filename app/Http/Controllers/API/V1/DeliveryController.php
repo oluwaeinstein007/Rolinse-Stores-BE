@@ -172,8 +172,10 @@ class DeliveryController extends Controller
 
     public function trackOrder($orderNumber)
     {
+        $deliveryId = Delivery::where('order_id', $orderNumber)
+            ->value('delivery_order_id');
         try {
-            $result = $this->deliveryService->trackOrder($orderNumber);
+            $result = $this->deliveryService->trackOrder($deliveryId);
 
             return response()->json([
                 'status' => 'success',

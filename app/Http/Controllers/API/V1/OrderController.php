@@ -147,20 +147,24 @@ class OrderController extends Controller
         $deliveryDetails['BatchID'] = 'BATCH' . strtoupper(uniqid());
         $deliveryDetails['valueOfItem'] = $grandTotal;
 
-        if($deliveryDetails['is_nigeria']){
-            try{
-                $result = $this->deliveryService->createDeliveryOrder($deliveryDetails) ?? 'seen';
-            }
-            catch(\Exception $e){
-                // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
-            }
+        if($deliveryDetails['is_benin']){
+            $deliveryDetails['destinationCountry'] = 'Benin';
+        } else {
+            if($deliveryDetails['is_nigeria']){
+                try{
+                    $result = $this->deliveryService->createDeliveryOrder($deliveryDetails) ?? 'seen';
+                }
+                catch(\Exception $e){
+                    // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
+                }
 
-        }else{
-            try{
-                $result = $this->deliveryService->createExportOrder($deliveryDetails) ?? 'hey';
-            }
-            catch(\Exception $e){
-                // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
+            }else{
+                try{
+                    $result = $this->deliveryService->createExportOrder($deliveryDetails) ?? 'hey';
+                }
+                catch(\Exception $e){
+                    // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
+                }
             }
         }
 
