@@ -38,6 +38,7 @@ Route::prefix('v1')->group(callback: function () {
 
         Route::prefix('finance')->group(function () {
             Route::get('/all-currency', [FinanceController::class, 'getAllCurrency'])->name('exchange-rate.all-currency');
+            Route::get('/rate-currency', [FinanceController::class, 'manualGetExchangeRate'])->name('exchange-rate.convert');
         });
 
     });
@@ -166,6 +167,8 @@ Route::prefix('v1')->group(callback: function () {
                 //updateOrderStatus
                 Route::put('/update-status/{orderId}', [OrderController::class, 'updateOrderStatus']);
                 //get all orders
+                Route::get('/sales-graph', [FinanceController::class, 'getSalesGraphData']);
+                Route::get('/sales-summary', [FinanceController::class, 'getSalesGrowthSummary']);
 
             });
 

@@ -211,11 +211,12 @@ class GeneralService
 
 
     public function addNewCurrency($currencyCode,$rate){
-        $exchangeRate = new ExchangeRate();
-        // $exchangeRate->user_id = 1;
-        $exchangeRate->currencyCode = $currencyCode;
-        $exchangeRate->rate = $rate;
-        $exchangeRate->save();
+        //create or update exchange rate
+        $exchangeRate = ExchangeRate::updateOrCreate(
+            ['currencyCode' => $currencyCode],
+            ['rate' => $rate]
+        );
+
 
         $exchangeHistory = new ExchangeHistory();
         // $exchangeHistory->user_id = 1;
