@@ -198,9 +198,16 @@ class FinanceController extends Controller
             $data['daily'] = $dailySales;
         }
 
+        //temp code to handle different DB drivers for date formatting
+        $driver = DB::getDriverName();
+
+        $dateFormat = $driver === 'pgsql'
+            ? "TO_CHAR(created_at, 'YYYY-MM')"
+            : "DATE_FORMAT(created_at, '%Y-%m')";
+
         // Monthly sales data
         if (in_array($granularity, ['monthly', 'both'])) {
-            $monthlySales = Order::selectRaw("TO_CHAR(created_at, 'YYYY-MM') as month, SUM(grand_total_ngn) as total_sales, AVG(grand_total_ngn) as value_per_sale, COUNT(*) as order_count")
+            $monthlySales = Order::selectRaw("$dateFormat as month, SUM(grand_total_ngn) as total_sales, AVG(grand_total_ngn) as value_per_sale, COUNT(*) as order_count")
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->where('status', 'completed')
                 ->groupBy('month')
