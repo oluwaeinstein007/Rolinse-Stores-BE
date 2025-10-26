@@ -200,7 +200,7 @@ class FinanceController extends Controller
 
         // Monthly sales data
         if (in_array($granularity, ['monthly', 'both'])) {
-            $monthlySales = Order::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(grand_total_ngn) as total_sales, AVG(grand_total_ngn) as value_per_sale, COUNT(*) as order_count')
+            $monthlySales = Order::selectRaw("TO_CHAR(created_at, 'YYYY-MM') as month, SUM(grand_total_ngn) as total_sales, AVG(grand_total_ngn) as value_per_sale, COUNT(*) as order_count")
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->where('status', 'completed')
                 ->groupBy('month')
