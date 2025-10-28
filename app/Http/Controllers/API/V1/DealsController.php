@@ -29,7 +29,7 @@ class DealsController extends Controller
     {
         //check if  visiblity
 
-        $dealTypes = SpecialDeals::select('deal_type', 'slug', 'image')->get();
+        $dealTypes = SpecialDeals::select('id','deal_type', 'slug', 'image')->get();
 
         return $this->success('Deal types fetched successfully', $dealTypes, [], 200);
     }
