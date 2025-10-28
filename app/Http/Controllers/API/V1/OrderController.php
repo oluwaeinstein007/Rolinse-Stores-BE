@@ -319,7 +319,7 @@ class OrderController extends Controller
                 return $query->where('user_email', $request->user_email);
             })
             ->orderBy('created_at', 'desc')
-            ->paginate(50);
+            ->paginate($request->per_page ?? 50);
 
         return $this->success('Orders retrieved successfully', $orders, [], 200);
     }
