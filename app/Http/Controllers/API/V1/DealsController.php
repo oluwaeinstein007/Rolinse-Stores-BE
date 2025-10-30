@@ -139,10 +139,14 @@ class DealsController extends Controller
             return response()->json(['message' => 'Deal type not found.'], 404);
         }
 
-        // Delete associated image file if it exists
-        if ($specialDeal->image) {
-            $publicId = $this->generalService->extractPublicId($specialDeal->image);
-            Cloudinary::destroy($publicId);
+        // use try Delete associated image file if it exists
+        try {
+            if ($specialDeal->image) {
+                $publicId = $this->generalService->extractPublicId($specialDeal->image);
+                Cloudinary::destroy($publicId);
+            }
+        } catch (\Exception $e) {
+            // Log the error or handle it as needed
         }
 
         // Delete the deal type
