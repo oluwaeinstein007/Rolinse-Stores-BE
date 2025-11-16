@@ -495,7 +495,11 @@ class PaymentController extends Controller
             ]);
 
             // Get PayPal access token
-            $authResponse = $client->post("https://api-m.{$this->paypalMode}.paypal.com/v1/oauth2/token", [
+            $baseUrl = $this->paypalMode === 'sandbox'
+                    ? 'https://api-m.sandbox.paypal.com'
+                    : 'https://api-m.paypal.com';
+
+            $authResponse = $client->post("{$baseUrl}/v1/oauth2/token", [
                 'headers' => [
                     'Accept' => 'application/json',
                     'Accept-Language' => 'en_US',
@@ -556,7 +560,7 @@ class PaymentController extends Controller
             return $this->failure('Unable to initiate PayPal payment. Please try again.', null, 500);
         } catch (\Exception $e) {
             Log::error('PayPal Initiate Payment General Error: ' . $e->getMessage());
-            return $this->failure('Unable to initiate PayPal payment. Please try again.', 500);
+            return $this->failure('Unable to initiate PayPal payment. Please try again.', null, 500);
         }
     }
 
