@@ -515,7 +515,6 @@ class PaymentController extends Controller
             $accessToken = $authData['access_token'];
 
             // Create PayPal order
-
             $orderResponse = $client->post("{$baseUrl}/v2/checkout/orders", [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $accessToken,
