@@ -556,7 +556,7 @@ class PaymentController extends Controller
             return $this->failure('Unable to initiate PayPal payment. Please try again.', null, 500);
         } catch (\Exception $e) {
             Log::error('PayPal Initiate Payment General Error: ' . $e->getMessage());
-            return $this->error('Unable to initiate PayPal payment. Please try again.', 500);
+            return $this->failure('Unable to initiate PayPal payment. Please try again.', 500);
         }
     }
 
