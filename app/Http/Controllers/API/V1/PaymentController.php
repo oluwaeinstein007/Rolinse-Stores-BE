@@ -484,7 +484,7 @@ class PaymentController extends Controller
         try {
             // Create a transaction record first
             $transaction = Transaction::create([
-                'reference' => strtoupper(str_replace('_', ' ', bin2hex(random_bytes(8)))), // Unique reference for PayPal
+                //'reference' => strtoupper(str_replace('_', ' ', bin2hex(random_bytes(8)))), // Unique reference for PayPal
                 'amount' => $request->amount,
                 'currency' => $request->currency,
                 'user_email' => $request->user()->email ?? $request->email, // Assuming user is authenticated
@@ -541,12 +541,22 @@ class PaymentController extends Controller
 
             $orderData = json_decode($orderResponse->getBody()->getContents(), true);
 
+
+            $approveUrl = null;
+            foreach ($orderData['links'] as $link) {
+                if (isset($link['rel']) && $link['rel'] === 'approve') {
+                    $approveUrl = $link['href'];
+                    break;
+                }
+            }
+            
             // Update transaction with PayPal order ID
             $transaction->update(['payment_id' => $orderData['id']]);
 
             return $this->success('PayPal payment initiated.', [
                 'paypal_order_id' => $orderData['id'],
-                'paypal_approve_url' => $orderData['links'][1]['href'], // Assuming the second link is the approval URL
+                'paypal_approve_url' => $approveUrl,
+                //'paypal_approve_url' => $orderData['links'][1]['href'], // Assuming the second link is the approval URL
                 'transaction_reference' => $transaction->reference,
             ]);
 
@@ -636,7 +646,7 @@ class PaymentController extends Controller
             return $this->failure('Unable to verify PayPal payment. Please try again.', null, 500);
         } catch (\Exception $e) {
             Log::error('PayPal Verify Payment General Error: ' . $e->getMessage());
-            return $this->error('Unable to verify PayPal payment. Please try again.', 500);
+            return $this->failure('Unable to verify PayPal payment. Please try again.', 500);
         }
     }
 
