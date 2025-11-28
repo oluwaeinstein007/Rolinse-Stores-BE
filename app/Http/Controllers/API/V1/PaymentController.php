@@ -176,7 +176,7 @@ class PaymentController extends Controller
                     'email' => $request->email,
                     'amount' => $request->amount * 100, // Paystack expects amount in kobo
                     'currency' => $request->currency ?? 'NGN',
-                    'callback_url' => env('Frontend_Callback')
+                    'callback_url' => env('Frontend_Callback') . '/payment/success?transaction_ref=' . uniqid('psk_'),
                 ],
             ]);
 
