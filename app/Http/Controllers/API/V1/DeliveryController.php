@@ -326,6 +326,14 @@ class DeliveryController extends Controller
             $delivery = Delivery::where('delivery_order_id', $request->orderNumber)
                 ->first();
 
+            if (!$delivery) {
+                Log::warning('Webhook: Delivery not found', [
+                    'delivery_order_id' => $request->orderNumber,
+                    'status' => $request->status
+                ]);
+                return response()->json(['message' => 'Delivery not found'], 404);
+            }
+
             // Update order status
             $delivery->delivery_status = $request->status;
             $delivery->save();

@@ -14,6 +14,7 @@ use App\Http\Controllers\API\V1\DeliveryController;
 //import admin middleware
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\Optional;
+use App\Http\Middleware\VerifyWebhookSignature;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -125,51 +126,23 @@ Route::prefix('v1')->group(callback: function () {
                 Route::get('/confirm-payment', [PaymentController::class, 'confirmPayment']);
                 Route::get('/get-payment-history/{type?}', [PaymentController::class, 'getTransactionHistory']);
             });
-
-
-            // Route::prefix('products')->group(function () {
-            //     Route::post('/', [ProductController::class, 'store']);
-            //     // Route::get('/', [ProductController::class, 'getAllProducts']);
-            //     Route::put('/{id}', [ProductController::class, 'update']);
-            //     Route::delete('/{id}', [ProductController::class, 'destroy']);
-            //     // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-            //     // Route::get('/get-types', [ProductController::class, 'getTypes']);
-            //     // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-            //     // Route::get('/filter', [ProductController::class, 'index']);
-            // });
-
-            //payment rout prefix
-            // Route::prefix('payment')->group(function () {
-            //     Route::post('wallet/deposit', [PaymentController::class, 'pay']);
-            //     Route::get('stripe/confirm', [PaymentController::class, 'confirmPayment']);
-            //     Route::post('/webhook/stripe', [PaymentController::class, 'webhook']);
-            // });
-
         });
 
 
         Route::middleware([Admin::class])->prefix('admin')->group(function () {
             Route::prefix('products')->group(function () {
                 Route::post('/', [ProductController::class, 'store']);
-                // Route::get('/', [ProductController::class, 'getAllProducts']);
                 Route::put('/{id}', [ProductController::class, 'update']);
                 Route::delete('/{id}', [ProductController::class, 'destroy']);
                 Route::get('/distribution', [ProductController::class, 'getProductDistribution']);
-                // Route::get('/get-products/{id?}', [ProductController::class, 'getProduct']);
-                // Route::get('/get-types', [ProductController::class, 'getTypes']);
-                // Route::post('/confirm-price', [ProductController::class, 'confirmPrice']);
-                // Route::get('/filter', [ProductController::class, 'index']);
             });
 
             Route::prefix('orders')->group(function () {
                 Route::get('/distribution', [OrderController::class, 'getOrderDistribution']);
                 Route::get('/list', [OrderController::class, 'getAllOrders']);
-                //updateOrderStatus
                 Route::put('/update-status/{orderId}', [OrderController::class, 'updateOrderStatus']);
-                //get all orders
                 Route::get('/sales-graph', [FinanceController::class, 'getSalesGraphData']);
                 Route::get('/sales-summary', [FinanceController::class, 'getSalesGrowthSummary']);
-
             });
 
             Route::prefix('customer')->group(function () {
@@ -193,10 +166,18 @@ Route::prefix('v1')->group(callback: function () {
         });
     });
 
-    // Fez Delivery Routes
-    Route::prefix('delivery')->group(function () {
+    // Fez Delivery Routes.
+    // These are staff/system operations (creating real shipments, reading
+    // customer PII, mutating recipient details) — previously wide open with
+    // no middleware at all. Everything except the inbound webhook now
+    // requires an authenticated admin, same as the rest of /v1/admin/*.
+    Route::middleware(['auth:sanctum', Admin::class])->prefix('delivery')->group(function () {
         Route::post('/authenticate', [DeliveryController::class, 'authenticate']);
-        Route::post('/calculate-fee', [DeliveryController::class, 'calculateDeliveryFee']);
+        // Was routed to calculateDeliveryFee, a method that doesn't exist on
+        // DeliveryController — every call to this endpoint threw a fatal
+        // "method does not exist" error. calculateDeliveryCost is the real,
+        // working equivalent (same state/weight inputs).
+        Route::post('/calculate-fee', [DeliveryController::class, 'calculateDeliveryCost']);
         Route::post('/create-order', [DeliveryController::class, 'createDeliveryOrder']);
         Route::get('/order-status/{orderId}', [DeliveryController::class, 'getOrderStatus']);
         Route::post('/calculate-cost', [DeliveryController::class, 'calculateDeliveryCost']);
@@ -208,8 +189,12 @@ Route::prefix('v1')->group(callback: function () {
         Route::get('/export-locations', [DeliveryController::class, 'getExportLocations']);
         Route::post('/export-cost', [DeliveryController::class, 'calculateExportCost']);
         Route::post('/create-export-order', [DeliveryController::class, 'createExportOrder']);
-        Route::post('/webhook', [DeliveryController::class, 'handleWebhook']);
-            // ->middleware('verify.webhook');
     });
+
+    // Fez calls this directly (not a logged-in admin), so it can't go behind
+    // auth:sanctum — guarded by a shared secret instead. Set
+    // WEBHOOK_SHARED_SECRET and register the same value with Fez.
+    Route::post('/delivery/webhook', [DeliveryController::class, 'handleWebhook'])
+        ->middleware(VerifyWebhookSignature::class);
 
 });

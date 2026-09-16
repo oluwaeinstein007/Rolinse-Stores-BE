@@ -53,4 +53,8 @@ return [
         'mode' => env('PAYPAL_MODE', 'sandbox'), // sandbox or live
     ],
 
+    // Shared secret for providers (e.g. Fez Delivery) that don't offer a real
+    // HMAC/signature scheme on their webhooks — see VerifyWebhookSignature.
+    'webhook_shared_secret' => env('WEBHOOK_SHARED_SECRET'),
+
 ];

@@ -16,6 +16,7 @@ use App\Services\GeneralService;
 use App\Services\NotificationService;
 use App\Models\Delivery;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -149,25 +150,28 @@ class OrderController extends Controller
         $deliveryDetails['BatchID'] = 'BATCH' . strtoupper(uniqid());
         $deliveryDetails['valueOfItem'] = $grandTotal;
 
-        if($deliveryDetails['is_benin']){
-            $deliveryDetails['destinationCountry'] = 'Benin';
-        } else {
-            if($deliveryDetails['is_nigeria']){
-                try{
-                    $result = $this->deliveryService->createDeliveryOrder($deliveryDetails) ?? 'seen';
-                }
-                catch(\Exception $e){
-                    // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
-                }
+        // $result starts null and stays null if delivery creation fails below —
+        // previously undefined in that case, which threw a warning reading
+        // $result['orderNos'] and silently produced an order with no shipment
+        // and no indication anything went wrong.
+        $result = null;
+        $deliveryCreationFailed = false;
 
-            }else{
-                try{
-                    $result = $this->deliveryService->createExportOrder($deliveryDetails) ?? 'hey';
-                }
-                catch(\Exception $e){
-                    // throw new Exception('Failed to create delivery order: ' . $e->getMessage());
-                }
+        try {
+            // is_benin/is_nigeria were read without a default, so a client that
+            // omitted both (or sent neither as true) silently fell through to
+            // the export-order branch for every order — defaulting explicitly
+            // to "domestic Nigeria" here instead, the common case.
+            if ($deliveryDetails['is_benin'] ?? false) {
+                $deliveryDetails['destinationCountry'] = 'Benin';
+            } elseif ($deliveryDetails['is_nigeria'] ?? true) {
+                $result = $this->deliveryService->createDeliveryOrder($deliveryDetails);
+            } else {
+                $result = $this->deliveryService->createExportOrder($deliveryDetails);
             }
+        } catch (\Exception $e) {
+            $deliveryCreationFailed = true;
+            Log::error('Failed to create delivery order for ' . $orderNumber . ': ' . $e->getMessage());
         }
 
         $deliveryDetails['delivery_order_id'] = $result['orderNos'][$orderNumber] ?? null;
@@ -195,6 +199,13 @@ class OrderController extends Controller
         if (!empty($missingProducts)) {
             $response['warning'] = 'Some products were not found and were skipped.';
             $response['missing_products'] = $missingProducts;
+        }
+
+        if ($deliveryCreationFailed) {
+            // The order itself is still valid/paid-for — surface this rather than
+            // pretending a shipment was scheduled when it wasn't (previously
+            // silent; see the logged error above for the underlying cause).
+            $response['warning'] = trim(($response['warning'] ?? '') . ' Delivery scheduling failed and will need to be retried manually.');
         }
 
         // $full_name = ($user->first_name . ' ' . $user->last_name) ?? $request->full_name;
@@ -232,9 +243,17 @@ class OrderController extends Controller
     public function getOrderHistory(Request $request)
     {
         $user = $request->authUser;
+        $email = $user->email ?? $request->email;
+
+        // Without this, a request with neither a logged-in user nor an ?email=
+        // param fell through to where('user_email', null) — returning every
+        // guest order that has no email attached, to anyone who asked.
+        if (!$email) {
+            return $this->failure('Log in or provide an email to look up order history', [], 422);
+        }
 
         $orders = Order::with(['items.product', 'delivery'])
-            ->where('user_email', $user->email ?? $request->email)
+            ->where('user_email', $email)
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -328,6 +347,15 @@ class OrderController extends Controller
     //update order status
     public function updateOrderStatus(Request $request, $orderId)
     {
+        // Previously accepted any string with no validation — a typo could
+        // silently set a status that never matches the enum used everywhere
+        // else (getOrderDistribution's completed/pending/cancelled/failed
+        // counts, revenue totals), and nothing ever told the customer their
+        // order status changed.
+        $request->validate([
+            'status' => 'required|string|in:pending,completed,cancelled,failed',
+        ]);
+
         $order = Order::find($orderId);
         if (!$order) {
             return $this->failure('Order not found', [], 404);
@@ -335,6 +363,21 @@ class OrderController extends Controller
 
         $order->status = $request->status;
         $order->save();
+
+        try {
+            $this->notificationService->userNotification(
+                ['email' => $order->user_email, 'id' => null],
+                'Order',
+                'Order Status Update',
+                'Order Status Updated',
+                "Your order {$order->order_number} status has been updated to: {$order->status}",
+                true,
+                '/orders/' . $order->id,
+                'View Order'
+            );
+        } catch (Exception $e) {
+            Log::error('Failed to send order status notification for ' . $order->order_number . ': ' . $e->getMessage());
+        }
 
         return $this->success('Order status updated successfully', $order, [], 200);
     }
