@@ -1,0 +1,1182 @@
+{
+  "info": {
+    "_postman_id": "c4a1f0e2-9b3d-4a7c-8e21-rol1nse0api00",
+    "name": "Rolinse Stores API",
+    "description": "Rolinse Stores backend (Laravel + Sanctum bearer tokens) — see api_docs.md and architecture.md at the project root for the full reference this was built from.\n\n## Before you run this\n\n1. Start the API: `php artisan serve` (default `http://localhost:8000`).\n2. Migrate + seed: `php artisan migrate:fresh --seed`. Seeders are idempotent (safe to re-run) as of this collection's date. Seeded accounts used below:\n   - Admin (verified, role 1): `admin@example.com` / `12345678`\n   - Regular user (verified, role 2): `user@example.com` / `12345678`\n3. Import this collection plus `Rolinse - Local.postman_environment.json`, select the environment, then run **00 - Auth → Register** first (or **Login (Seeded User)** if you'd rather skip straight to an already-verified account).\n\n## How auth works here\n\nBearer tokens (Sanctum personal access tokens), not cookies — much simpler than a cookie/CSRF-based SPA API. `Register` and `Login` both return a `token` field; a collection-level test script on every request automatically picks up `token` from the response body if present and stores it as `{{token}}`, and a pre-request script attaches `Authorization: Bearer {{token}}` to every request automatically. You don't need to touch headers yourself anywhere in this collection.\n\n## A registration quirk worth knowing\n\n`POST /register` returns a token immediately and that token works for authenticated routes right away, but the account's `email_verified_at` is NOT set at registration — an OTP is generated (see `POST /verify-otp`) to verify it. Calling `POST /login` (as opposed to using the token you already have from registering) will fail with \"Email not verified\" until that OTP step completes, and the OTP is never returned in the API response (by design — it goes out via the notification channel). So: **use the token from Register directly** for the main customer journey below; `Login` is demonstrated separately against the pre-seeded, already-verified `user@example.com` account instead.\n\n## Folder order\n\n1. **00 - Auth** — register (primary path) + login (seeded account) + username/email/referral checks\n2. **01 - Catalogue (Public)** — products, types, filter, category shop, best-sellers; harvests a product to buy\n3. **02 - Deals (Public)**\n4. **03 - My Account** — profile, shipping address, notifications, discount check, password change\n5. **04 - Orders** — place an order (using the harvested product), order history\n6. **05 - Payments (Reference)** — Stripe/Paystack/Flutterwave/PayPal initiate+verify; none of these can fully succeed without real gateway credentials in `.env` — see each request's description\n7. **06 - Finance** — currency list\n8. **07 - Admin - Auth** — logs in as the seeded admin, replacing the active session for every folder after this\n9. **08 through 12 - Admin - \\*** — products, orders (incl. status updates + sales analytics), customers, promo codes, delivery (Fez)\n10. **13 - Delivery Webhook (Reference)** — not directly runnable (needs Fez's shared secret) — documents the contract\n\nRun the whole collection top-to-bottom via Collection Runner for a coherent end-to-end story, or jump into any folder on its own once **00 - Auth** has set a token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "product_id", "value": "", "type": "string" },
+    { "key": "color_id", "value": "", "type": "string" },
+    { "key": "category_id", "value": "", "type": "string" },
+    { "key": "category_slug", "value": "", "type": "string" },
+    { "key": "referral_code", "value": "", "type": "string" },
+    { "key": "order_id", "value": "", "type": "string" },
+    { "key": "otp", "value": "", "type": "string", "description": "Paste manually from the log/notification after Register or Forgot Password — never returned in an API response, by design." },
+    { "key": "admin_product_id", "value": "", "type": "string" },
+    { "key": "admin_promo_id", "value": "", "type": "string" },
+    { "key": "admin_promo_code", "value": "", "type": "string" },
+    { "key": "customer_user_id", "value": "", "type": "string" },
+    { "key": "delivery_order_number", "value": "", "type": "string" },
+    { "key": "webhook_shared_secret", "value": "", "type": "string", "description": "Must match WEBHOOK_SHARED_SECRET in .env for the Delivery Webhook (Reference) request to succeed." }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const token = pm.collectionVariables.get('token');",
+          "if (token) {",
+          "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + token });",
+          "}",
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Register and Login both return a top-level `token` — grab it",
+          "// automatically so folders after 00 - Auth don't need to do it",
+          "// themselves.",
+          "try {",
+          "    const body = pm.response.json();",
+          "    if (body && typeof body.token === 'string' && body.token.length > 10) {",
+          "        pm.collectionVariables.set('token', body.token);",
+          "    }",
+          "} catch (e) { /* non-JSON or empty body — nothing to capture */ }"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Auth",
+      "item": [
+        {
+          "name": "Register (primary path)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns a token and the created user', () => {",
+                  "    pm.expect(body.token).to.be.a('string');",
+                  "    pm.expect(body.data).to.have.property('email');",
+                  "});",
+                  "if (body.data && body.data.referral_code) {",
+                  "    pm.collectionVariables.set('referral_code', body.data.referral_code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"amara.{{$timestamp}}@example.com\",\n    \"password\": \"SecurePass123!\",\n    \"first_name\": \"Amara\",\n    \"last_name\": \"Okafor\",\n    \"phone_number\": \"+2348012345678\",\n    \"country\": \"Nigeria\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/register", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "register"] },
+            "description": "Unique email each run via {{$timestamp}}, so this collection is safely re-runnable. Returns a token immediately — the rest of this collection's customer journey uses it, since the account isn't email-verified yet and Login would reject it (see the collection description)."
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Seeded, already-verified user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns a token', () => pm.expect(pm.response.json().token).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"12345678\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/login", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "login"] },
+            "description": "Demonstrates Login against a seeded, already-verified regular user (UserSeeder). Running this REPLACES the active {{token}} — the customer-journey folders after this will act as this user instead of the one Register created, which is fine, just be aware it's a different identity."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Username Available",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('Status is 2xx or 409', () => pm.expect([200,201,409]).to.include(pm.response.code));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"username\": \"amara_{{$randomInt}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/user/verify-username", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "verify-username"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email Available",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200 or 409', () => pm.expect([200,409]).to.include(pm.response.code));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"email\": \"someone-new-{{$timestamp}}@example.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/user/verify-email", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "verify-email"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Referral Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200 or 404', () => pm.expect([200,404,422]).to.include(pm.response.code));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"referral_code\": \"{{referral_code}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/user/verify-refcode", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "verify-refcode"] },
+            "description": "Uses the referral_code captured from the Register response above, if any."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"email\": \"user@example.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/user/resend-otp", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "resend-otp"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('otp')) {",
+                  "    pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "} else {",
+                  "    pm.test('Skipped: no otp set — see request description', () => pm.expect(true).to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"email\": \"user@example.com\",\n    \"otp\": \"{{otp}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/user/verify-otp", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "verify-otp"] },
+            "description": "The OTP is never returned by the API (it's sent via the notification channel, by design) — set the {{otp}} collection variable manually from wherever notifications land locally to try this."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Catalogue (Public)",
+      "description": "`Optional` middleware — these work with or without a token.",
+      "item": [
+        {
+          "name": "List Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "// The success() helper wraps a Laravel paginator under `data`, so the",
+                  "// actual array is body.data.data (paginator), not body.data directly.",
+                  "let list = body.data ?? body;",
+                  "if (list && !Array.isArray(list) && Array.isArray(list.data)) { list = list.data; }",
+                  "if (Array.isArray(list) && list.length) {",
+                  "    pm.collectionVariables.set('product_id', list[0].id);",
+                  "    if (list[0].category_id) pm.collectionVariables.set('category_id', list[0].category_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/products", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "products"] },
+            "description": "Harvests a product_id/category_id for the rest of the collection."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by ID",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/products/get-products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "products", "get-products", "{{product_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Types (brands/categories/sizes/colors)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const colors = (body.data ?? body).colors ?? (body.data ?? body).colours;",
+                  "if (Array.isArray(colors) && colors.length) {",
+                  "    pm.collectionVariables.set('color_id', colors[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/products/get-types", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "products", "get-types"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter Products",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/products/filter?category_id={{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "products", "filter"],
+              "query": [{ "key": "category_id", "value": "{{category_id}}" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Category Shop",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/products/category-shop?category_id={{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "products", "category-shop"],
+              "query": [{ "key": "category_id", "value": "{{category_id}}" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Best Sellers",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/products/best-seller", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "products", "best-seller"] },
+            "description": "Recomputed from real order_items data once a month automatically (see ProductController::bestSeller) — seeded with random demo data until then."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Price",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"products\": [\n        { \"product_id\": {{product_id}}, \"quantity\": 1 }\n    ],\n    \"returnCurrency\": \"USD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/products/confirm-price", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "products", "confirm-price"] },
+            "description": "Server-authoritative price confirmation before checkout — prices always come from the DB, never trusted from the client (verified in placeOrder too)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Deals (Public)",
+      "item": [
+        {
+          "name": "Get Deal Types",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/deals/types", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "deals", "types"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Special Deals",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/deals/get-offers", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "deals", "get-offers"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - My Account",
+      "item": [
+        {
+          "name": "Get Current User",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user", "host": ["{{base_url}}"], "path": ["api", "v1", "user"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Profile",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Amara Okafor\",\n    \"gender\": \"female\",\n    \"date_of_birth\": \"1996-04-12\",\n    \"address\": \"14 Marina Road\",\n    \"country\": \"Nigeria\",\n    \"state\": \"Lagos\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/edit-profile", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "edit-profile"] },
+            "description": "All fields are `sometimes` — send only what's changing."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Shipping Address",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200 or 201', () => pm.expect([200,201]).to.include(pm.response.code));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"address_line1\": \"14 Marina Road\",\n    \"address_line2\": \"Suite 2\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"postal_code\": \"100001\",\n    \"country\": \"Nigeria\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/shipping-address", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "shipping-address"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notifications",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/get-notification", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "get-notification"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Discount Promo",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/check-discount-promo?promo_code={{admin_promo_code}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "check-discount-promo"],
+              "query": [{ "key": "promo_code", "value": "{{admin_promo_code}}" }]
+            },
+            "description": "Uses a promo code created in '11 - Admin - Promo' if you've run that folder already; otherwise expect a not-found style response."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"current_password\": \"SecurePass123!\",\n    \"password\": \"AnotherSecurePass456!\",\n    \"password_confirmation\": \"AnotherSecurePass456!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/change-password", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "change-password"] },
+            "description": "Not chained into the rest of the collection on purpose — changing the active user's password mid-run would break subsequent Login calls."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Orders",
+      "item": [
+        {
+          "name": "Place Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "// placeOrder's $this->success() wraps an already {status,message,data}-",
+                  "// shaped array under yet another `data` key — the real order fields are",
+                  "// two levels down: body.data.data, not body.data.",
+                  "const data = (body.data && body.data.data) ? body.data.data : (body.data ?? body);",
+                  "pm.test('Returns an order number', () => pm.expect(data.order_number).to.be.a('string'));",
+                  "if (data.order_id) { pm.collectionVariables.set('order_id', data.order_id); }",
+                  "if (data.delivery_details && data.delivery_details.delivery_order_id) {",
+                  "    pm.collectionVariables.set('delivery_order_number', data.delivery_details.delivery_order_id);",
+                  "}",
+                  "if (pm.response.code === 201 && !data.delivery_details?.delivery_order_id) {",
+                  "    console.warn('Order placed but Fez delivery creation failed (expected without real FEZ_* credentials in .env) — see the order response warning field.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"products\": [\n        { \"product_id\": {{product_id}}, \"quantity\": 1, \"color_id\": {{color_id}} }\n    ],\n    \"returnCurrency\": \"USD\",\n    \"delivery_details\": {\n        \"recipientAddress\": \"14 Marina Road\",\n        \"recipientState\": \"Lagos\",\n        \"recipientPhone\": \"+2348012345678\",\n        \"weight\": 1.5,\n        \"pickup_state\": \"Abuja\",\n        \"is_nigeria\": true,\n        \"is_benin\": false\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "orders"] },
+            "description": "Price comes from the DB (product_id + quantity only) — the client can't influence the total by sending its own price. is_nigeria/is_benin are explicit here on purpose: omitting both used to silently route every order down the international-export path (fixed) — this shows the normal domestic case. weight/pickup_state are required (delivery_details.* — validated now; previously a missing one crashed with a raw 500 QueryException instead of a 422). Without real FEZ_* credentials in .env, the order still succeeds (201) but the response carries a `warning` that delivery scheduling failed — that's the expected fallback, not a bug."
+          },
+          "response": []
+        },
+        {
+          "name": "Order History",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/orders/history", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "orders", "history"] },
+            "description": "Requires either an authenticated token (used here) or an explicit ?email= — a bare request with neither now returns a clean 422 instead of an empty 200."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Payments (Reference)",
+      "description": "All four gateways verify server-to-server against the real provider (Paystack/Flutterwave/PayPal) or Stripe's SDK — none trust a client-supplied \"success\" claim, which is the important thing to know about this section. None of these will fully succeed without real gateway credentials in `.env`; they're included so the request shapes are documented, and each will fail cleanly (4xx/5xx from the provider call) rather than silently doing nothing.",
+      "item": [
+        {
+          "name": "Stripe - Pay",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 5000,\n    \"currency\": \"usd\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/payment/stripe/pay", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "payment", "stripe", "pay"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Paystack - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 5000,\n    \"email\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/payment/paystack/initiate", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "payment", "paystack", "initiate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Paystack - Verify",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/payment/paystack/verify?reference=example-ref",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "payment", "paystack", "verify"],
+              "query": [{ "key": "reference", "value": "example-ref" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Flutterwave - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 5000,\n    \"email\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/payment/flutterwave/initiate", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "payment", "flutterwave", "initiate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Flutterwave - Verify",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/payment/flutterwave/verify?transaction_id=example-id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "user", "payment", "flutterwave", "verify"],
+              "query": [{ "key": "transaction_id", "value": "example-id" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PayPal - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 50.00,\n    \"currency\": \"USD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/payment/paypal/initiate", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "payment", "paypal", "initiate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "PayPal - Verify",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_id\": \"example-paypal-order-id\",\n    \"transaction_reference\": \"example-ref\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/payment/paypal/verify", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "payment", "paypal", "verify"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Finance",
+      "item": [
+        {
+          "name": "List All Currencies",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/user/finance/all-currency", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "finance", "all-currency"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Admin - Auth",
+      "description": "Logging in here replaces {{token}} with the admin's — everything from this folder onward runs as the admin, not the customer from folders 00-04.",
+      "item": [
+        {
+          "name": "Login (Seeded Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role is admin (user_role_id 1)', () => pm.expect(pm.response.json().user.user_role_id).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"12345678\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/user/login", "host": ["{{base_url}}"], "path": ["api", "v1", "user", "login"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 - Admin - Products",
+      "item": [
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "// ProductController::store returns {message, product: {...}} — not",
+                  "// the {data: ...} / success()-helper shape most other endpoints use.",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('admin_product_id', data.product.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Handcrafted Leather Tote\",\n    \"description\": \"Full-grain leather tote, hand-stitched.\",\n    \"category_id\": {{category_id}},\n    \"material\": \"Leather\",\n    \"price\": 129.99,\n    \"weight\": 0.8,\n    \"discount\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/admin/products", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "products"] },
+            "description": "brand_id is optional; image upload is a separate multipart concern (images.*.file) not exercised here — attach a file manually if you need to test that part."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Handcrafted Leather Tote — Limited Edition\",\n    \"price\": 149.99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/products/{{admin_product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "products", "{{admin_product_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Product Distribution",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/products/distribution?type=category",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "products", "distribution"],
+              "query": [{ "key": "type", "value": "category", "description": "category | brand" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/products/{{admin_product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "products", "{{admin_product_id}}"]
+            },
+            "description": "Run last in this folder — deletes the product created above."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 - Admin - Orders",
+      "description": "Uses {{order_id}} from '04 - Orders' if that ran with the admin's own token, or from whichever customer session placed one last.",
+      "item": [
+        {
+          "name": "List Orders",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/orders/list", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "orders", "list"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Order Distribution",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/orders/distribution?type=category",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "orders", "distribution"],
+              "query": [{ "key": "type", "value": "category" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sales Graph",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/orders/sales-graph", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "orders", "sales-graph"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Sales Summary",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/orders/sales-summary", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "orders", "sales-summary"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Order Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('order_id')) {",
+                  "    pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "} else {",
+                  "    pm.test('Skipped: no order_id — run 04 - Orders first', () => pm.expect(true).to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"status\": \"completed\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/orders/update-status/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "orders", "update-status", "{{order_id}}"]
+            },
+            "description": "status must be one of pending|completed|cancelled|failed (validated) — sends the customer a notification on change."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 - Admin - Customers",
+      "item": [
+        {
+          "name": "List Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = (body.data ?? body);",
+                  "const arr = Array.isArray(list) ? list : (list.data ?? []);",
+                  "if (arr.length) { pm.collectionVariables.set('customer_user_id', arr[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/customer", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "customer"] }
+          },
+          "response": []
+        },
+        {
+          "name": "User Activities",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/customer/activities/{{customer_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "customer", "activities", "{{customer_user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "User Metadata",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/customer/metadata", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "customer", "metadata"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Revenue Analytics (monthly)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/customer/analytics-month-chart", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "customer", "analytics-month-chart"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transactions",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/customer/payment/get-transactions", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "customer", "payment", "get-transactions"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Suspend User",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Testing suspend flow\",\n    \"duration_weeks\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/customer/suspend/{{customer_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "customer", "suspend", "{{customer_user_id}}"]
+            },
+            "description": "Not run automatically as part of a chained flow (suspending the wrong seeded user would break other folders) — review before sending."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/customer/restore/{{customer_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "customer", "restore", "{{customer_user_id}}"]
+            },
+            "description": "Undoes 'Suspend User' above, if you ran it."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 - Admin - Promo",
+      "item": [
+        {
+          "name": "Create Promo Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 or 200', () => pm.expect([200,201]).to.include(pm.response.code));",
+                  "const body = pm.response.json();",
+                  "const data = body.data ?? body;",
+                  "if (data.id) { pm.collectionVariables.set('admin_promo_id', data.id); }",
+                  "if (data.promo_code) { pm.collectionVariables.set('admin_promo_code', data.promo_code); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"promo_code\": \"WELCOME{{$randomInt}}\",\n    \"discount_percentage\": 15,\n    \"limited\": true,\n    \"max_uses\": 100\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/admin/promo", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "promo"] },
+            "description": "Unique promo_code each run via {{$randomInt}} — the endpoint rejects a duplicate code with a 403."
+          },
+          "response": []
+        },
+        {
+          "name": "List Promo Codes",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/promo", "host": ["{{base_url}}"], "path": ["api", "v1", "admin", "promo"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Promo Code",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"discount_percentage\": 20,\n    \"limited\": true,\n    \"max_uses\": 50\n}", "options": { "raw": { "language": "json" } } },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/promo/{{admin_promo_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "promo", "{{admin_promo_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Promo Code",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));"] } }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/promo/{{admin_promo_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "promo", "{{admin_promo_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 - Admin - Delivery (Fez)",
+      "description": "Previously these had NO middleware at all — anyone could create real shipments or read customer PII. Now admin-only, same as the rest of /v1/admin/*.",
+      "item": [
+        {
+          "name": "Authenticate with Fez",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/delivery/authenticate", "host": ["{{base_url}}"], "path": ["api", "v1", "delivery", "authenticate"] },
+            "description": "Requires real FEZ_* credentials in .env to succeed — otherwise fails cleanly at the Fez API call."
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Delivery Cost",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"state\": \"Lagos\",\n    \"pickUpState\": \"Abuja\",\n    \"weight\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/delivery/calculate-cost", "host": ["{{base_url}}"], "path": ["api", "v1", "delivery", "calculate-cost"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Delivery Fee (alias of Cost)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"state\": \"Lagos\",\n    \"pickUpState\": \"Abuja\",\n    \"weight\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/delivery/calculate-fee", "host": ["{{base_url}}"], "path": ["api", "v1", "delivery", "calculate-fee"] },
+            "description": "Previously routed to a controller method that didn't exist (fatal error on every call) — now points at the same working handler as calculate-cost."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Delivery Orders",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"start_date\": \"2025-01-01\",\n    \"end_date\": \"2025-12-31\",\n    \"page\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/delivery/search", "host": ["{{base_url}}"], "path": ["api", "v1", "delivery", "search"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Track Delivery Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/delivery/track/{{delivery_order_number}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "delivery", "track", "{{delivery_order_number}}"]
+            },
+            "description": "Uses the delivery order number captured from '04 - Orders → Place Order', if Fez creation succeeded there."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13 - Delivery Webhook (Reference)",
+      "description": "Fez calls this directly (server-to-server), guarded by a shared secret rather than a login — set {{webhook_shared_secret}} to match WEBHOOK_SHARED_SECRET in .env to actually exercise it.",
+      "item": [
+        {
+          "name": "Delivery Status Webhook",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('webhook_shared_secret')) {",
+                  "    pm.test('Request completed', () => pm.expect(pm.response.code).to.be.below(500));",
+                  "} else {",
+                  "    pm.test('Correctly rejected: no shared secret configured', () => pm.response.to.have.status(401));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-Webhook-Secret", "value": "{{webhook_shared_secret}}" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderNumber\": \"{{delivery_order_number}}\",\n    \"status\": \"Delivered\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/delivery/webhook", "host": ["{{base_url}}"], "path": ["api", "v1", "delivery", "webhook"] },
+            "description": "Without a matching secret this correctly 401s — that's the fix being demonstrated, not a bug. This route was previously open to the internet with a signature-check middleware that always returned true."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -180,6 +180,15 @@ class GeneralService
 
 
     public function newCurrency($currencyCode){
+        // Previously any failure here (network error, bad/missing
+        // FOREX_API_KEY, provider outage, unexpected response shape) threw
+        // an uncaught GuzzleException/TypeError straight out to a raw 500
+        // with a full stack trace — on the checkout path. This is the only
+        // place a currency's rate is fetched live (getExchangeRate() caches
+        // the result in exchange_rates after the first successful call), so
+        // catching failures here covers every caller (placeOrder,
+        // confirmPrice, FinanceController) without needing to duplicate the
+        // handling in each of them.
         $client = new Client();
         $url = 'https://api.apilayer.com/fixer/convert';
         $apikey = env('FOREX_API_KEY');
@@ -195,18 +204,30 @@ class GeneralService
             'from' => $fromCode,
             'amount' => 1
         ];
-        $response = $client->request('GET', $url, [
-            'query' => $params,
-            'headers' => $headers
-        ]);
+
+        try {
+            $response = $client->request('GET', $url, [
+                'query' => $params,
+                'headers' => $headers
+            ]);
 
             $responseBody = $response->getBody()->getContents();
             $jsonData = json_decode($responseBody, true);
+            $rate = $jsonData['info']['rate'] ?? null;
 
-            $rate = $jsonData['info']['rate'];
-            $rate = $this->roundNum($rate);
-            return $rate;
+            if ($rate === null) {
+                throw new \RuntimeException('Forex API response did not include a rate: ' . $responseBody);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to fetch exchange rate for {$currencyCode}: " . $e->getMessage());
 
+            throw new \App\Exceptions\ExchangeRateUnavailableException(
+                "Could not fetch the exchange rate for {$currencyCode} right now.",
+                previous: $e
+            );
+        }
+
+        return $this->roundNum($rate);
     }
 
 

@@ -81,13 +81,20 @@ class AuthController extends Controller
     //create User account
     public function createAccount(Request $request)
     {
+        // Previously: password had no validation rule at all despite being
+        // passed straight to Hash::make() below, and first_name/last_name/
+        // phone_number/country were "nullable" here while the users table
+        // (0001_01_01_000000_create_users_table.php) declares all four NOT
+        // NULL with no default — omitting any of them didn't fail validation,
+        // it crashed with a raw 500 QueryException at the INSERT instead.
         $attr = Validator::make($request->all(), [
             'email' => 'required|string|email|unique:users,email',
-            'first_name' => 'nullable|string',
-            'last_name' => 'nullable|string',
+            'password' => 'required|string|min:8',
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
             'username' => 'nullable|string|unique:users,username',
-            'phone_number' => 'nullable|string',
-            'country' => 'nullable|string',
+            'phone_number' => 'required|string',
+            'country' => 'required|string',
             'referral_by' => 'nullable|string|exists:users,referral_code',
         ]);
 

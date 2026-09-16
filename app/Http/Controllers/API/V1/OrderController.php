@@ -36,11 +36,33 @@ class OrderController extends Controller
 
     public function placeOrder(Request $request)
     {
-        $user = $request->authUser;
+        // deliveries.recipientAddress/recipientState/weight/pickup_state are
+        // NOT NULL with no default (2025_03_29_230616_create_deliveries_table.php)
+        // and nothing here auto-derives them the way recipientName/email/
+        // uniqueID/CustToken/BatchID/valueOfItem are below — an order missing
+        // any of these previously reached the Delivery::create() insert and
+        // crashed with a raw 500 QueryException instead of a clean 422.
+        $request->validate([
+            'delivery_details.recipientAddress' => 'required|string',
+            'delivery_details.recipientState' => 'required|string',
+            'delivery_details.weight' => 'required|numeric',
+            'delivery_details.pickup_state' => 'required|string',
+        ]);
+
+        // $request->authUser is null for a guest order (this route is
+        // `Optional` middleware, not auth:sanctum) — $user->email on null
+        // previously warned-then-crashed (Laravel converts PHP warnings to
+        // exceptions) before ever reaching the delivery_details fallback.
+        // Request::input() with dot notation is null-safe for a missing
+        // nested key, unlike the raw $request->delivery_details['key'] array
+        // access this replaces, which crashed the same way if the client
+        // didn't send that particular field.
+        $authUser = $request->authUser;
         $user = [
-            'email' => $user->email ?? $request->delivery_details['recipientEmail'],
-            'full_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $request->delivery_details['recipientName'],
-            'id' => $user->id ?? null,
+            'email' => $authUser?->email ?? $request->input('delivery_details.recipientEmail'),
+            'full_name' => trim(($authUser?->first_name ?? '') . ' ' . ($authUser?->last_name ?? ''))
+                ?: $request->input('delivery_details.recipientName'),
+            'id' => $authUser?->id,
         ];
         $orderNumber = 'ORD-' . strtoupper(uniqid());
 
@@ -81,14 +103,19 @@ class OrderController extends Controller
                 $returnCurrency
             );
 
+            // `first()` returning null previously meant reading ->image_path
+            // straight off null — PHP 8 doesn't crash on that (the ?? still
+            // catches it) but it does emit an "attempt to read property on
+            // null" warning on every miss. The null-safe operator says what's
+            // actually meant: "if there's no match, there's no path".
             $image = ProductImage::where('product_id', $productId)
                     ->where('color_id', $productData['color_id'] ?? null)
                     ->first()
-                    ->image_path ?? ProductImage::where('product_id', $productId)
+                    ?->image_path ?? ProductImage::where('product_id', $productId)
                     ->first()
-                    ->image_path ?? null;
+                    ?->image_path ?? null;
 
-            $color = Attribute::where('id',$productData['color_id'])->first()->value ?? null;
+            $color = Attribute::where('id', $productData['color_id'] ?? null)->first()?->value ?? null;
 
 
             $orderItems[] = [
@@ -114,8 +141,15 @@ class OrderController extends Controller
         }
 
         // Step 2: Create the order
+        // $user is the array rebuilt above (email/full_name/id), not the
+        // original authUser model — ->email here was always null (property
+        // access on an array just warns-then-null), which combined with the
+        // same undefined-key risk on the raw array fallback crashed this on
+        // any order that didn't explicitly send delivery_details.recipientEmail.
+        // $user['email'] already carries the same authUser-or-recipientEmail
+        // fallback correctly resolved a few lines up.
         $order = Order::create([
-            'user_email' => $user->email ?? $request->delivery_details['recipientEmail'],
+            'user_email' => $user['email'],
             'order_number' => $orderNumber,
             'status' => 'pending',
             'grand_total' => $grandTotal,

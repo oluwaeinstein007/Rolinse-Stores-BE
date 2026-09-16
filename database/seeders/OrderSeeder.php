@@ -16,28 +16,33 @@ class OrderSeeder extends Seeder
      */
     public function run(): void
     {
+        // Random demo data with no stable key — guard against `db:seed`
+        // piling up another 10 orders (with valid-looking but ever-growing
+        // random order numbers) on every re-run.
+        if (DB::table('orders')->exists()) {
+            return;
+        }
+
         // Seed 10 orders
         for ($i = 0; $i < 10; $i++) {
             $userEmail = "user" . $i . "@example.com";
             $orderNumber = strtoupper(Str::random(10));
             $status = ['pending', 'completed', 'cancelled'][array_rand(['pending', 'completed', 'cancelled'])];
 
-            // Select random products
-            $products = Product::inRandomOrder()->limit(rand(1, 5))->get();
+            // Select random products, rolling each one's quantity/total once
+            // up front — previously this was rolled again (with different
+            // random results) when inserting order_items below, so a seeded
+            // order's grand_total/item_count never actually matched the sum
+            // of its own line items.
+            $products = Product::inRandomOrder()->limit(rand(1, 5))->get()->map(function ($product) {
+                $product->seeded_quantity = rand(1, 5);
+                $product->seeded_total_price = $product->seeded_quantity * $product->price;
 
-            $grandTotal = 0;
-            $itemCount = 0;
+                return $product;
+            });
 
-            // Calculate order totals
-            foreach ($products as $product) {
-                $quantity = rand(1, 5);
-                $pricePerUnit = $product->price;
-                $totalPrice = $quantity * $pricePerUnit;
-
-                $grandTotal += $totalPrice;
-
-                $itemCount += $quantity;
-            }
+            $grandTotal = $products->sum('seeded_total_price');
+            $itemCount = $products->sum('seeded_quantity');
 
             // Insert order
             $orderId = DB::table('orders')->insertGetId([
@@ -54,19 +59,13 @@ class OrderSeeder extends Seeder
 
             // Insert order items
             foreach ($products as $product) {
-                $quantity = rand(1, 5);
-                $pricePerUnit = $product->price;
-                $totalPrice = $quantity * $pricePerUnit;
-
                 DB::table('order_items')->insert([
                     'order_id' => $orderId,
                     'product_id' => $product->id,
-                    'quantity' => $quantity,
-                    // 'image' => $product->image ?? null,
-                    // 'image' => ProductImage::where('product_id', $product->id)->first()->image_path ?? null,
-                    'image' => ProductImage::where('product_id', $product->id)->first()->image_path ?? null,
-                    'price_per_unit' => $pricePerUnit,
-                    'total_price' => $totalPrice,
+                    'quantity' => $product->seeded_quantity,
+                    'image' => ProductImage::where('product_id', $product->id)->first()?->image_path,
+                    'price_per_unit' => $product->price,
+                    'total_price' => $product->seeded_total_price,
                     'currency' => 'USD',
                     'created_at' => now(),
                     'updated_at' => now(),

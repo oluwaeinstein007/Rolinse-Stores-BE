@@ -15,6 +15,16 @@ class BestSellerSeeder extends Seeder
      */
     public function run(): void
     {
+        // This is just bootstrap/demo data for local dev — the real
+        // computation (from actual order_items) already exists and
+        // self-refreshes monthly in ProductController::bestSeller(), which
+        // truncates and repopulates this table for real once live order data
+        // exists. Just guard the random seed data itself against duplicating
+        // on every `db:seed` re-run before that first real refresh happens.
+        if (BestSeller::exists()) {
+            return;
+        }
+
         // Fetch top 10 products by orders count (mocked here for simplicity)
         $products = Product::inRandomOrder()->limit(10)->get();
 

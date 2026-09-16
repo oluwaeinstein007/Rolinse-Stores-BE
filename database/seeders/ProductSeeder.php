@@ -15,6 +15,14 @@ class ProductSeeder extends Seeder
 {
     public function run()
     {
+        // This generates random demo data with no stable key to dedupe
+        // against (unlike CategorySeeder/BrandSeeder's updateOrCreate) — every
+        // re-run of `db:seed` added another 100 random products on top of
+        // whatever was already there. Guard against that instead.
+        if (Product::exists()) {
+            return;
+        }
+
         $faker = Faker::create();
         $brands = Brand::all();
         $categories = Category::all();
