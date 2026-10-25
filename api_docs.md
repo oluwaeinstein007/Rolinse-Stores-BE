@@ -113,8 +113,8 @@ These routes are accessible with the `Optional` middleware, meaning they can be 
 | POST   | `/add-product`              | `DealsController@addProductDeal`         | `Optional` | Adds a product to a deal.                                  |
 | DELETE | `/clear-product`            | `DealsController@clearProductDeal`       | `Optional` | Removes a product from a deal.                             |
 | GET    | `/get-offers/{dealType?}`   | `DealsController@getSpecialDeals`        | `Optional` | Retrieves special deals, optionally filtered by deal type. |
-| POST   | `/create-deal-type/{slug?}` | `DealsController@createOrUpdateDealType` | `Optional` | Creates or updates a deal type.                            |
-| DELETE | `/delete-deal-type/{id?}`   | `DealsController@deleteDealTypes`        | `Optional` | Deletes a deal type.                                       |
+| POST   | `/create-deal-type/{slug?}` | `DealsController@createOrUpdateDealType` | `auth:sanctum`, `Admin` | Creates or updates a deal type (admin bearer token required). |
+| DELETE | `/delete-deal-type/{id?}`   | `DealsController@deleteDealTypes`        | `auth:sanctum`, `Admin` | Deletes a deal type (admin bearer token required). |
 
 ## Admin Routes (`/v1/admin`)
 

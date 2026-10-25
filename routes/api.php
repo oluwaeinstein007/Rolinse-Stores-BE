@@ -93,8 +93,11 @@ Route::prefix('v1')->group(callback: function () {
             Route::post('add-product', [DealsController::class, 'addProductDeal']);
             Route::delete('clear-product', [DealsController::class, 'clearProductDeal']);
             Route::get('get-offers/{dealType?}', [DealsController::class, 'getSpecialDeals']);
-            Route::post('create-deal-type/{slug?}', [DealsController::class, 'createOrUpdateDealType']);
-            Route::delete('delete-deal-type/{id?}', [DealsController::class, 'deleteDealTypes']);
+            // Admin-only, like /admin/products, but kept at these URLs so the frontend doesn't change.
+            Route::middleware(['auth:sanctum', Admin::class])->group(function () {
+                Route::post('create-deal-type/{slug?}', [DealsController::class, 'createOrUpdateDealType']);
+                Route::delete('delete-deal-type/{id?}', [DealsController::class, 'deleteDealTypes']);
+            });
         });
     });
 

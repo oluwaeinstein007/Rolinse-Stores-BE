@@ -159,36 +159,65 @@ class CloudinaryUploadsTest extends TestCase
             ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Deals'])
             ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.png']));
 
-        $this->post('/api/v1/user/deals/create-deal-type', [
-            'deal_type' => 'Black Friday',
-            'visibility' => 'visible',
-            'image' => $file,
-        ], ['Accept' => 'application/json'])
+        // A real bearer token, as the frontend sends after login (AuthController
+        // issues 'authToken'), so this goes through Optional + auth:sanctum + Admin.
+        $token = User::factory()->admin()->create()->createToken('authToken')->plainTextToken;
+
+        $this->withToken($token)
+            ->post('/api/v1/user/deals/create-deal-type', [
+                'deal_type' => 'Black Friday',
+                'visibility' => 'visible',
+                'image' => $file,
+            ], ['Accept' => 'application/json'])
             ->assertOk();
 
         $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.png', SpecialDeals::sole()->image);
     }
 
     /**
-     * The deals routes sit outside auth:sanctum, so anyone can call this one.
-     * SVG can carry script and nothing here sanitizes it, so unlike admin
-     * product images the deal-type banner stays raster-only.
+     * Deal-type banners accept SVG again (as before the upgrade) now that only
+     * admins can upload them, the same as admin product images.
      */
-    public function test_deal_type_image_upload_rejects_svg(): void
+    public function test_admin_deal_type_image_upload_accepts_svg(): void
     {
         $file = UploadedFile::fake()->createWithContent('banner.svg', self::SVG);
 
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Deals'])
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg']));
+
+        $this->actingAs(User::factory()->admin()->create())
+            ->post('/api/v1/user/deals/create-deal-type', [
+                'deal_type' => 'Black Friday',
+                'visibility' => 'visible',
+                'image' => $file,
+            ], ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg', SpecialDeals::sole()->image);
+    }
+
+    /**
+     * create-deal-type and delete-deal-type keep their /user/deals URLs for the
+     * frontend, but sit behind auth:sanctum + Admin like /admin/products.
+     */
+    public function test_deal_type_writes_are_refused_for_guests_and_non_admins(): void
+    {
+        $deal = SpecialDeals::create(['deal_type' => 'Black Friday', 'slug' => 'black_friday']);
+        $create = ['deal_type' => 'Cyber Monday', 'image' => UploadedFile::fake()->createWithContent('b.png', base64_decode(self::PNG_1X1))];
+
         $this->uploadApi->shouldNotReceive('upload');
+        $this->uploadApi->shouldNotReceive('destroy');
 
-        $this->post('/api/v1/user/deals/create-deal-type', [
-            'deal_type' => 'Black Friday',
-            'visibility' => 'visible',
-            'image' => $file,
-        ], ['Accept' => 'application/json'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('image');
+        $this->postJson('/api/v1/user/deals/create-deal-type', $create)->assertUnauthorized();
+        $this->deleteJson("/api/v1/user/deals/delete-deal-type/{$deal->id}")->assertUnauthorized();
 
-        $this->assertSame(0, SpecialDeals::count());
+        $this->actingAs(User::factory()->create());
+        $this->postJson('/api/v1/user/deals/create-deal-type', $create)->assertForbidden();
+        $this->deleteJson("/api/v1/user/deals/delete-deal-type/{$deal->id}")->assertForbidden();
+
+        $this->assertSame([$deal->id], SpecialDeals::pluck('id')->all());
     }
 
     public function test_admin_product_delete_destroys_each_image_by_public_id(): void
@@ -227,7 +256,8 @@ class CloudinaryUploadsTest extends TestCase
             ->with('Deals/bf-banner')
             ->andReturn($this->response(['result' => 'ok']));
 
-        $this->deleteJson("/api/v1/user/deals/delete-deal-type/{$deal->id}")
+        $this->actingAs(User::factory()->admin()->create())
+            ->deleteJson("/api/v1/user/deals/delete-deal-type/{$deal->id}")
             ->assertOk();
 
         $this->assertDatabaseMissing('special_deals', ['id' => $deal->id]);

@@ -40,7 +40,7 @@ class DealsController extends Controller
     {
         $request->validate([
             'deal_type' => 'required|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image' => 'nullable|image:allow_svg|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'visibility' => 'nullable|string',
         ]);
 
