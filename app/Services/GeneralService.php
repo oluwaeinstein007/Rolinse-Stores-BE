@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Crypt;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Http;
 
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Cloudinary;
 
 use App\Models\ExchangeRate;
 use App\Models\ExchangeHistory;
@@ -84,7 +84,7 @@ class GeneralService
         }
 
         // Upload media
-        $uploadResponse = Cloudinary::uploadApi()->upload($media, $options);
+        $uploadResponse = app(Cloudinary::class)->uploadApi()->upload($media, $options);
 
         return $uploadResponse['secure_url'] ?? '';
     }
