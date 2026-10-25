@@ -19,7 +19,7 @@ use App\Services\GeneralService;
 
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Cloudinary;
 //import \Log;
 use Illuminate\Support\Facades\Log;
 use App\Services\DeliveryService;
@@ -113,7 +113,7 @@ class ProductController extends Controller
             'price' => 'required|numeric',
             'weight' => 'nullable|numeric',
             'images' => 'array',
-            'images.*.file' => 'required|image|max:2048',
+            'images.*.file' => 'required|image:allow_svg|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
             'discount' => 'nullable|numeric',
             // 'attributes' => 'array',
@@ -289,7 +289,7 @@ class ProductController extends Controller
             'weight' => 'nullable|numeric',
             'discount' => 'nullable|numeric',
             'images' => 'nullable|array',
-            'images.*.file' => 'nullable|image|max:2048',
+            'images.*.file' => 'nullable|image:allow_svg|max:2048',
             'images.*.color_id' => 'nullable|exists:attributes,id',
             'attributes' => 'array',
         ]);
@@ -497,7 +497,7 @@ class ProductController extends Controller
         $images = ProductImage::where('product_id', $id)->get();
         foreach ($images as $image) {
             $publicId = $this->generalService->extractPublicId($image->image_path);
-            Cloudinary::destroy($publicId);
+            app(Cloudinary::class)->uploadApi()->destroy($publicId);
         }
 
         $product->delete();
