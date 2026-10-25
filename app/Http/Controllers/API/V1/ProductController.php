@@ -19,7 +19,7 @@ use App\Services\GeneralService;
 
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Cloudinary;
 //import \Log;
 use Illuminate\Support\Facades\Log;
 use App\Services\DeliveryService;
@@ -497,7 +497,7 @@ class ProductController extends Controller
         $images = ProductImage::where('product_id', $id)->get();
         foreach ($images as $image) {
             $publicId = $this->generalService->extractPublicId($image->image_path);
-            Cloudinary::destroy($publicId);
+            app(Cloudinary::class)->uploadApi()->destroy($publicId);
         }
 
         $product->delete();

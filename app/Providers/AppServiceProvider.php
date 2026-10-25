@@ -7,6 +7,7 @@ use App\Services\NotificationService;
 use App\Services\ActivityLogger;
 use App\Services\StripeService;
 use App\Services\DeliveryService;
+use Cloudinary\Cloudinary;
 
 use Illuminate\Support\ServiceProvider;
 
@@ -36,6 +37,13 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(DeliveryService::class, function ($app) {
             return new DeliveryService();
+        });
+
+        // Official Cloudinary SDK, built from CLOUDINARY_URL (config/cloudinary.php).
+        // Resolved lazily at the call sites, so a missing CLOUDINARY_URL only
+        // fails when an upload or delete is actually attempted.
+        $this->app->singleton(Cloudinary::class, function ($app) {
+            return new Cloudinary($app['config']->get('cloudinary.cloud_url'));
         });
     }
 

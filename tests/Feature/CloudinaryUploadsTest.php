@@ -1,0 +1,166 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductImage;
+use App\Models\SpecialDeals;
+use App\Models\User;
+use App\Services\GeneralService;
+use Cloudinary\Api\ApiResponse;
+use Cloudinary\Api\Upload\UploadApi;
+use Cloudinary\Cloudinary;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Mockery;
+use Mockery\MockInterface;
+use Tests\TestCase;
+
+/**
+ * Media goes through the official Cloudinary SDK (bound in AppServiceProvider)
+ * instead of the cloudinary-labs/cloudinary-laravel wrapper. These tests swap
+ * the SDK for a mock so nothing ever reaches the real Cloudinary API, and pin
+ * the file/options each call site sends and the response field it reads.
+ */
+class CloudinaryUploadsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    private MockInterface $uploadApi;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->uploadApi = Mockery::mock(UploadApi::class);
+
+        $sdk = Mockery::mock(Cloudinary::class);
+        $sdk->shouldReceive('uploadApi')->andReturn($this->uploadApi);
+
+        $this->instance(Cloudinary::class, $sdk);
+    }
+
+    private function response(array $body): ApiResponse
+    {
+        return new ApiResponse($body, []);
+    }
+
+    public function test_sdk_is_built_from_the_cloudinary_config_as_a_singleton(): void
+    {
+        $this->app->forgetInstance(Cloudinary::class);
+        config(['cloudinary.cloud_url' => 'cloudinary://123456:secret@demo-cloud']);
+
+        $sdk = app(Cloudinary::class);
+
+        $this->assertInstanceOf(Cloudinary::class, $sdk);
+        $this->assertNotInstanceOf(MockInterface::class, $sdk);
+        $this->assertSame($sdk, app(Cloudinary::class));
+        $this->assertSame('demo-cloud', $sdk->configuration->cloud->cloudName);
+        $this->assertSame('123456', $sdk->configuration->cloud->apiKey);
+    }
+
+    public function test_upload_media_sends_the_file_and_folder_and_returns_the_secure_url(): void
+    {
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with('/tmp/shirt.png', ['transformation' => [], 'folder' => 'Product'])
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Product/shirt.png']));
+
+        $url = GeneralService::uploadMedia('/tmp/shirt.png', 'Product');
+
+        $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Product/shirt.png', $url);
+    }
+
+    public function test_upload_media_keeps_resizing_and_video_options_for_gifs(): void
+    {
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with('/tmp/promo.gif', [
+                'transformation' => [['width' => 300, 'height' => 200, 'crop' => 'scale']],
+                'folder' => 'Deals',
+                'resource_type' => 'video',
+                'format' => 'gif',
+            ])
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/video/upload/v1/Deals/promo.gif']));
+
+        $url = GeneralService::uploadMedia('/tmp/promo.gif', 'Deals', 'gif', 300, 200);
+
+        $this->assertSame('https://res.cloudinary.com/demo/video/upload/v1/Deals/promo.gif', $url);
+    }
+
+    public function test_upload_media_returns_an_empty_string_without_a_secure_url(): void
+    {
+        $this->uploadApi->shouldReceive('upload')->once()->andReturn($this->response([]));
+
+        $this->assertSame('', GeneralService::uploadMedia('/tmp/shirt.png', 'Product'));
+    }
+
+    public function test_admin_product_store_uploads_each_image_and_saves_its_secure_url(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('shirt.png', base64_decode(self::PNG_1X1));
+        $secureUrl = 'https://res.cloudinary.com/demo/image/upload/v1/Product/shirt.png';
+
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Product'])
+            ->andReturn($this->response(['secure_url' => $secureUrl]));
+
+        $this->actingAs(User::factory()->admin()->create())
+            ->post('/api/v1/admin/products', [
+                'name' => 'Linen Shirt',
+                'description' => 'A shirt',
+                'category_id' => Category::factory()->create()->id,
+                'material' => 'Linen',
+                'price' => 25,
+                'images' => [['file' => $file, 'color_id' => '']],
+            ], ['Accept' => 'application/json'])
+            ->assertCreated();
+
+        $this->assertSame($secureUrl, ProductImage::sole()->image_path);
+    }
+
+    public function test_admin_product_delete_destroys_each_image_by_public_id(): void
+    {
+        $product = Product::create([
+            'category_id' => Category::factory()->create()->id,
+            'name' => 'Linen Shirt',
+            'description' => 'A shirt',
+            'material' => 'Linen',
+            'price' => 25,
+        ]);
+        $product->images()->create(['image_path' => 'https://res.cloudinary.com/demo/image/upload/v1712345678/Product/abc123.jpg']);
+
+        $this->uploadApi->shouldReceive('destroy')
+            ->once()
+            ->with('Product/abc123')
+            ->andReturn($this->response(['result' => 'ok']));
+
+        $this->actingAs(User::factory()->admin()->create())
+            ->deleteJson("/api/v1/admin/products/{$product->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('products', ['id' => $product->id]);
+    }
+
+    public function test_deleting_a_deal_type_destroys_its_image_by_public_id(): void
+    {
+        $deal = SpecialDeals::create([
+            'deal_type' => 'Black Friday',
+            'slug' => 'black_friday',
+            'image' => 'https://res.cloudinary.com/demo/image/upload/v1712345678/Deals/bf-banner.png',
+        ]);
+
+        $this->uploadApi->shouldReceive('destroy')
+            ->once()
+            ->with('Deals/bf-banner')
+            ->andReturn($this->response(['result' => 'ok']));
+
+        $this->deleteJson("/api/v1/user/deals/delete-deal-type/{$deal->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('special_deals', ['id' => $deal->id]);
+    }
+}

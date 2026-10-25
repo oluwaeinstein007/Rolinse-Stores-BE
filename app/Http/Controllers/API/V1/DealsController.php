@@ -9,7 +9,7 @@ use App\Models\Product;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GeneralService;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Cloudinary;
 
 class DealsController extends Controller
 {
@@ -143,7 +143,7 @@ class DealsController extends Controller
         try {
             if ($specialDeal->image) {
                 $publicId = $this->generalService->extractPublicId($specialDeal->image);
-                Cloudinary::destroy($publicId);
+                app(Cloudinary::class)->uploadApi()->destroy($publicId);
             }
         } catch (\Exception $e) {
             // Log the error or handle it as needed
