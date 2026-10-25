@@ -64,7 +64,7 @@ These routes are accessible with the `Optional` middleware, meaning they can be 
 | GET    | `/filter`             | `ProductController@index`                | `Optional` | Filters products based on various criteria.                            |
 | GET    | `/category-shop`      | `ProductController@getProductByCategory` | `Optional` | Retrieves products filtered by category.                               |
 | GET    | `/best-seller`        | `ProductController@bestSeller`           | `Optional` | Retrieves the list of best-selling products.                           |
-| GET    | `handleImages`        | `DealsController@handleImages`           | `Optional` | Handles product images for deals.                                      |
+| GET    | `handleImages`        | `DealsController@handleImages`           | `auth:sanctum`, `Admin` | Re-uploads stored brand/category/product images to Cloudinary (admin bearer token required). |
 
 ## Order Routes (`/v1/user/orders`)
 
@@ -110,8 +110,8 @@ These routes are accessible with the `Optional` middleware, meaning they can be 
 | Method | URI                         | Controller & Method                      | Middleware | Description                                                |
 | ------ | --------------------------- | ---------------------------------------- | ---------- | ---------------------------------------------------------- |
 | GET    | `/types`                    | `DealsController@getDealTypes`           | `Optional` | Retrieves available deal types.                            |
-| POST   | `/add-product`              | `DealsController@addProductDeal`         | `Optional` | Adds a product to a deal.                                  |
-| DELETE | `/clear-product`            | `DealsController@clearProductDeal`       | `Optional` | Removes a product from a deal.                             |
+| POST   | `/add-product`              | `DealsController@addProductDeal`         | `auth:sanctum`, `Admin` | Adds a product to a deal (admin bearer token required). |
+| DELETE | `/clear-product`            | `DealsController@clearProductDeal`       | `auth:sanctum`, `Admin` | Removes a product from a deal (admin bearer token required). |
 | GET    | `/get-offers/{dealType?}`   | `DealsController@getSpecialDeals`        | `Optional` | Retrieves special deals, optionally filtered by deal type. |
 | POST   | `/create-deal-type/{slug?}` | `DealsController@createOrUpdateDealType` | `auth:sanctum`, `Admin` | Creates or updates a deal type (admin bearer token required). |
 | DELETE | `/delete-deal-type/{id?}`   | `DealsController@deleteDealTypes`        | `auth:sanctum`, `Admin` | Deletes a deal type (admin bearer token required). |
