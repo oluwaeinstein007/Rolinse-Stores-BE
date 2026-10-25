@@ -29,6 +29,8 @@ class CloudinaryUploadsTest extends TestCase
 
     private const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
+    private const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>';
+
     private MockInterface $uploadApi;
 
     protected function setUp(): void
@@ -120,6 +122,51 @@ class CloudinaryUploadsTest extends TestCase
             ->assertCreated();
 
         $this->assertSame($secureUrl, ProductImage::sole()->image_path);
+    }
+
+    /**
+     * Laravel 12 dropped SVG from the plain `image` rule. Product images
+     * accepted SVG before the upgrade, so the rule now opts back in with
+     * `image:allow_svg`.
+     */
+    public function test_admin_product_store_still_accepts_svg_images(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('logo.svg', self::SVG);
+
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Product'])
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Product/logo.svg']));
+
+        $this->actingAs(User::factory()->admin()->create())
+            ->post('/api/v1/admin/products', [
+                'name' => 'Logo Tee',
+                'description' => 'A tee',
+                'category_id' => Category::factory()->create()->id,
+                'material' => 'Cotton',
+                'price' => 15,
+                'images' => [['file' => $file, 'color_id' => '']],
+            ], ['Accept' => 'application/json'])
+            ->assertCreated();
+    }
+
+    public function test_deal_type_image_upload_still_accepts_svg(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('banner.svg', self::SVG);
+
+        $this->uploadApi->shouldReceive('upload')
+            ->once()
+            ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Deals'])
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg']));
+
+        $this->post('/api/v1/user/deals/create-deal-type', [
+            'deal_type' => 'Black Friday',
+            'visibility' => 'visible',
+            'image' => $file,
+        ], ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg', SpecialDeals::sole()->image);
     }
 
     public function test_admin_product_delete_destroys_each_image_by_public_id(): void
