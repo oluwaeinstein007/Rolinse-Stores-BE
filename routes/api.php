@@ -55,7 +55,9 @@ Route::prefix('v1')->group(callback: function () {
             Route::get('/filter', [ProductController::class, 'index']);
             Route::get('/category-shop', [ProductController::class, 'getProductByCategory']);
             Route::get('/best-seller', [ProductController::class, 'bestSeller']);
-            Route::get('handleImages', [DealsController::class, 'handleImages']);
+            // Admin-only (re-uploads every stored image to Cloudinary), same URL.
+            Route::get('handleImages', [DealsController::class, 'handleImages'])
+                ->middleware(['auth:sanctum', Admin::class]);
         });
 
         Route::prefix('orders')->group(function () {
@@ -90,11 +92,11 @@ Route::prefix('v1')->group(callback: function () {
 
         Route::prefix('deals')->group(function () {
             Route::get('types', [DealsController::class, 'getDealTypes']);
-            Route::post('add-product', [DealsController::class, 'addProductDeal']);
-            Route::delete('clear-product', [DealsController::class, 'clearProductDeal']);
             Route::get('get-offers/{dealType?}', [DealsController::class, 'getSpecialDeals']);
             // Admin-only, like /admin/products, but kept at these URLs so the frontend doesn't change.
             Route::middleware(['auth:sanctum', Admin::class])->group(function () {
+                Route::post('add-product', [DealsController::class, 'addProductDeal']);
+                Route::delete('clear-product', [DealsController::class, 'clearProductDeal']);
                 Route::post('create-deal-type/{slug?}', [DealsController::class, 'createOrUpdateDealType']);
                 Route::delete('delete-deal-type/{id?}', [DealsController::class, 'deleteDealTypes']);
             });
