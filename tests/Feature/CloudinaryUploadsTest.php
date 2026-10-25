@@ -150,14 +150,14 @@ class CloudinaryUploadsTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_deal_type_image_upload_still_accepts_svg(): void
+    public function test_deal_type_image_upload_saves_the_secure_url(): void
     {
-        $file = UploadedFile::fake()->createWithContent('banner.svg', self::SVG);
+        $file = UploadedFile::fake()->createWithContent('banner.png', base64_decode(self::PNG_1X1));
 
         $this->uploadApi->shouldReceive('upload')
             ->once()
             ->with($file->getRealPath(), ['transformation' => [], 'folder' => 'Deals'])
-            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg']));
+            ->andReturn($this->response(['secure_url' => 'https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.png']));
 
         $this->post('/api/v1/user/deals/create-deal-type', [
             'deal_type' => 'Black Friday',
@@ -166,7 +166,29 @@ class CloudinaryUploadsTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk();
 
-        $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.svg', SpecialDeals::sole()->image);
+        $this->assertSame('https://res.cloudinary.com/demo/image/upload/v1/Deals/banner.png', SpecialDeals::sole()->image);
+    }
+
+    /**
+     * The deals routes sit outside auth:sanctum, so anyone can call this one.
+     * SVG can carry script and nothing here sanitizes it, so unlike admin
+     * product images the deal-type banner stays raster-only.
+     */
+    public function test_deal_type_image_upload_rejects_svg(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('banner.svg', self::SVG);
+
+        $this->uploadApi->shouldNotReceive('upload');
+
+        $this->post('/api/v1/user/deals/create-deal-type', [
+            'deal_type' => 'Black Friday',
+            'visibility' => 'visible',
+            'image' => $file,
+        ], ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('image');
+
+        $this->assertSame(0, SpecialDeals::count());
     }
 
     public function test_admin_product_delete_destroys_each_image_by_public_id(): void
